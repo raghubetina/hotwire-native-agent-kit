@@ -1,0 +1,72 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "pathname"
+require "yaml"
+
+root = Pathname.new(__dir__).join("..").expand_path
+skill = root.join("skills/develop-hotwire-native")
+errors = []
+
+skill_markdown = skill.join("SKILL.md").read
+errors << "Skill frontmatter name does not match its directory." unless skill_markdown.match?(/^name: develop-hotwire-native$/)
+
+agent_neutral_markdown = [skill.join("SKILL.md"), *skill.join("references").glob("*.md")].map(&:read).join("\n")
+%w[Codex Claude Gemini Cursor].each do |host|
+  errors << "Core Skill mentions host-specific name #{host.inspect}." if agent_neutral_markdown.match?(/\b#{Regexp.escape(host)}\b/)
+end
+
+manifest = JSON.parse(root.join(".codex-plugin/plugin.json").read)
+version = manifest.fetch("version")
+errors << "Plugin name is inconsistent." unless manifest["name"] == "hotwire-native-agent-kit"
+errors << "Changelog does not contain version #{version}." unless root.join("CHANGELOG.md").read.include?("## #{version} -")
+
+lock = YAML.load_file(root.join("upstream-lock.yml"))
+lock.fetch("sources").each do |name, source|
+  errors << "#{name} is missing an immutable commit." unless source.fetch("commit", "").match?(/\A[0-9a-f]{40}\z/)
+end
+
+licenses = skill.join("assets/templates/bridge-form/LICENSES.md")
+errors << "Adapted bridge templates are missing their accompanying license notices." unless licenses.file?
+{
+  "form_controller.js" => "Copyright (c) 2025 Joseph Masilotti",
+  "FormComponent.swift" => "Copyright (c) 2024 Hotwire",
+  "FormComponent.kt" => "Copyright (c) 2024 37signals LLC"
+}.each do |filename, notice|
+  errors << "#{filename} is missing its upstream copyright header." unless skill.join("assets/templates/bridge-form", filename).read.include?(notice)
+  errors << "LICENSES.md is missing the notice for #{filename}." unless licenses.read.include?(notice)
+end
+
+Dir.glob(skill.join("assets/templates/path-configuration/*.json")).each do |path|
+  JSON.parse(File.read(path))
+end
+
+Dir.glob(root.join("**/*.md"), File::FNM_DOTMATCH).each do |path|
+  relative = Pathname.new(path).relative_path_from(root)
+  File.read(path).scan(/\[[^\]]*\]\(([^)]+)\)/).flatten.each do |target|
+    next if target.match?(%r{\A(?:https?://|mailto:|#)})
+
+    destination = target.split("#", 2).first
+    resolved = Pathname.new(path).dirname.join(destination).cleanpath
+    errors << "#{relative}: missing link target #{target.inspect}." unless resolved.exist?
+  end
+end
+
+Dir.glob(skill.join("scripts/*.rb")).each do |path|
+  errors << "#{Pathname.new(path).relative_path_from(root)} is not executable." unless File.executable?(path)
+end
+
+Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }.each do |path|
+  next if path.include?("/.git/")
+
+  content = File.binread(path)
+  next unless content.valid_encoding?
+
+  private_home_prefix = "/" + "Users/"
+  errors << "#{Pathname.new(path).relative_path_from(root)} contains a private absolute path." if content.include?(private_home_prefix)
+end
+
+abort errors.join("\n") unless errors.empty?
+
+puts "Release structure verified for #{manifest.fetch('name')} #{version}."
