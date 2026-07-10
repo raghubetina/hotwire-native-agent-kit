@@ -1,6 +1,6 @@
 {
   "name": "hotwire-native-agent-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Audit, build, upgrade, and debug Rails-powered Hotwire Native apps.",
   "author": {
     "name": "Raghu Betina",

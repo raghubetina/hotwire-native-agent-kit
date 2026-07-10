@@ -32,7 +32,7 @@ Pin a reviewed release for reproducible use:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
-  develop-hotwire-native@v0.1.0 \
+  develop-hotwire-native@v0.1.1 \
   --agent codex \
   --scope user
 ```
@@ -57,7 +57,7 @@ Version `0.1.0` is published as a portable Agent Skill. The included Codex plugi
 
 ## Verified baseline
 
-The `v0.1.0` guidance and fixtures were verified on July 10, 2026 against:
+The `v0.1.1` guidance and fixtures were verified on July 10, 2026 against:
 
 - Hotwire Native iOS 1.3.0
 - Hotwire Native Android 1.3.0

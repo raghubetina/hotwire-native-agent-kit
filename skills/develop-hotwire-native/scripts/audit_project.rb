@@ -28,7 +28,8 @@ rescue ArgumentError
 end
 
 IGNORED_DIRECTORIES = %w[
-  .bundle .cache .git .gradle DerivedData Pods build coverage log node_modules tmp vendor
+  .agents .bundle .cache .claude .codex .cursor .gemini .git .gradle .opencode .windsurf
+  DerivedData Pods build coverage log node_modules tmp vendor
 ].freeze
 
 def ignored_path?(root, path)

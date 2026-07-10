@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-07-10
+
+- Exclude installed agent-host directories from project audits so bundled Skill fixtures cannot be mistaken for application code.
+
 ## 0.1.0 - 2026-07-10
 
 - Add the `develop-hotwire-native` Skill.

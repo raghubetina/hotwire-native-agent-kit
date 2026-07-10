@@ -97,6 +97,7 @@ Dir.mktmpdir("hotwire-native-skill-test") do |tmp|
   FileUtils.mkdir_p(File.join(project, "android/app"))
   FileUtils.mkdir_p(File.join(project, "tmp/references/fake/Fake.xcodeproj"))
   FileUtils.mkdir_p(File.join(project, "tmp/references/fake/android"))
+  FileUtils.mkdir_p(File.join(project, ".agents/skills/reference/assets/templates/path-configuration"))
 
   File.write(File.join(project, "Gemfile.lock"), <<~LOCK)
     GEM
@@ -154,6 +155,7 @@ Dir.mktmpdir("hotwire-native-skill-test") do |tmp|
   File.write(File.join(project, "android/settings.gradle.kts"), "rootProject.name = \"App\"\n")
   File.write(File.join(project, "android/app/build.gradle.kts"), 'implementation("dev.hotwire:core:1.3.0")')
   File.write(File.join(project, "tmp/references/fake/android/settings.gradle.kts"), "rootProject.name = \"ReferenceOnly\"\n")
+  File.write(File.join(project, ".agents/skills/reference/assets/templates/path-configuration/ios.json"), '{"settings":{},"rules":[]}')
 
   stdout, = run_command(RUBY, project_auditor, "--root", project, "--json")
   audit = JSON.parse(stdout)
@@ -162,6 +164,7 @@ Dir.mktmpdir("hotwire-native-skill-test") do |tmp|
   raise "Android version audit failed" unless audit.dig("android", "resolved_dependencies", 0, "version") == "1.3.0"
   raise "Ignored reference iOS project leaked into audit" unless audit.dig("ios", "xcode_projects") == ["ios/App.xcodeproj"]
   raise "Ignored reference Android project leaked into audit" unless audit.dig("android", "gradle_projects") == ["android/settings.gradle.kts"]
+  raise "Installed agent Skill fixture leaked into audit" unless audit.dig("integration", "path_configurations") == ["config/ios_v1.json"]
   raise "Schema-shaped path configuration file was not detected" unless audit.dig("integration", "path_configurations").include?("config/ios_v1.json")
 
   rails_path_configuration = audit.dig("integration", "rails_path_configuration")
