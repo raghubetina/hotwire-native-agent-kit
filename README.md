@@ -32,7 +32,7 @@ Pin a reviewed release for reproducible use:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
-  develop-hotwire-native@v0.1.1 \
+  develop-hotwire-native@v0.2.0 \
   --agent codex \
   --scope user
 ```
@@ -53,15 +53,16 @@ Pinned installations are intentionally skipped by `gh skill update`; review a ne
 
 The same Skill can be installed for another supported agent by changing `--agent`.
 
-Version `0.1.0` is published as a portable Agent Skill. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
+Version `0.2.0` is published as a portable Agent Skill. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
 
 ## Verified baseline
 
-The `v0.1.1` guidance and fixtures were verified on July 10, 2026 against:
+The `v0.2.0` guidance and fixtures were verified on July 11, 2026 against:
 
 - Hotwire Native iOS 1.3.0
 - Hotwire Native Android 1.3.0
 - Hotwire Native Bridge 1.2.2
+- Action Push Native 0.3.1
 
 The Skill audits the target application's resolved dependencies before recommending version-sensitive changes. Its compatibility matrix is a tested baseline, not permission to upgrade an application automatically.
 

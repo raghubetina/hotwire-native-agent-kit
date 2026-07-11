@@ -12,6 +12,11 @@ errors = []
 skill_markdown = skill.join("SKILL.md").read
 errors << "Skill frontmatter name does not match its directory." unless skill_markdown.match?(/^name: develop-hotwire-native$/)
 
+%w[push-notifications.md distribution-and-signing.md].each do |reference|
+  errors << "Missing task reference #{reference}." unless skill.join("references", reference).file?
+  errors << "SKILL.md does not route to #{reference}." unless skill_markdown.include?("references/#{reference}")
+end
+
 agent_neutral_markdown = [skill.join("SKILL.md"), *skill.join("references").glob("*.md")].map(&:read).join("\n")
 %w[Codex Claude Gemini Cursor].each do |host|
   errors << "Core Skill mentions host-specific name #{host.inspect}." if agent_neutral_markdown.match?(/\b#{Regexp.escape(host)}\b/)
