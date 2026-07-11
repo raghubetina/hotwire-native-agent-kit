@@ -13,6 +13,15 @@ Audit the existing application before adding native projects. A native shell amp
 
 `turbo-rails` exposes `hotwire_native_app?` and the legacy alias `turbo_native_app?`. Use native detection to enhance presentation, not to remove the web fallback.
 
+Reuse the web session rather than caching a parallel native signed-in flag. Confirm the server issues a durable,
+revocable cookie appropriate for native relaunches, then test force-quit/relaunch, explicit sign-out, account
+switching, and expiry. A cookie that survives one navigation but disappears with the app process is not a native
+authentication strategy.
+
+Password AutoFill is a three-sided identity contract: semantic HTML `autocomplete` values, an AASA response with
+`webcredentials.apps`, and the signed app's matching `webcredentials:` Associated Domain must agree. Test save
+and fill on a signed physical device; Universal Links alone do not prove Shared Web Credentials.
+
 ## Capability-aware enhancement
 
 Hotwire Native appends registered bridge-component names to its user agent. Prefer a server helper that distinguishes:

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 - 2026-07-11
+
+- Add end-to-end push-notification guidance, including authenticated registration, per-device APNs environment
+  routing, environment-scoped keys, account self-tests, and lifecycle verification.
+- Add signing and distribution guidance for local Macs, hosted builders, TestFlight, project ownership, and
+  archive entitlement verification.
+- Require evidence before preserving legacy-client fallbacks; no-user prototypes should remove transitional
+  branches before becoming golden references.
+- Add durable native-session, Shared Web Credentials, and native-target deployment-floor checks.
+- Verify Action Push Native 0.3.1 as the current provider baseline.
+
 ## 0.1.1 - 2026-07-10
 
 - Exclude installed agent-host directories from project audits so bundled Skill fixtures cannot be mistaken for application code.

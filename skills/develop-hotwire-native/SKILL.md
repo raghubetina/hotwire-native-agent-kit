@@ -1,6 +1,7 @@
 ---
 name: develop-hotwire-native
-description: Audit, build, upgrade, and debug Hotwire Native iOS and Android clients for existing Rails applications. Use for assessing Rails readiness, discovering locked Rails/Turbo/Hotwire versions, scaffolding or modifying Hotwire Native 1.x shells, implementing navigation or path configuration, creating or reviewing three-sided Bridge Components, migrating 1.2-era code to 1.3, or diagnosing cross-platform contract and lifecycle failures.
+description: Audit, build, upgrade, and debug Hotwire Native iOS and Android clients for existing Rails applications. Use for assessing Rails readiness, discovering locked Rails/Turbo/Hotwire versions, scaffolding or modifying Hotwire Native 1.x shells, implementing navigation, path configuration, push notifications, signing, or distribution, creating or reviewing three-sided Bridge Components, migrating 1.2-era code to 1.3, or diagnosing cross-platform contract and lifecycle failures.
+license: MIT
 ---
 
 # Develop Hotwire Native
@@ -16,7 +17,9 @@ Treat Rails as the product and the native projects as progressively enhanced cli
    - Use a Bridge Component for one native control or device capability driven by usable web markup.
    - Use a native screen for a whole interaction requiring native performance, gestures, or SDKs.
 4. Load only the task-specific references in the routing table below.
-5. Implement the smallest complete slice across Rails, iOS, and Android. Preserve older deployed-client fallbacks.
+5. Implement the smallest complete slice across Rails, iOS, and Android. Derive compatibility requirements from
+   evidence: preserve contracts used by deployed clients, but remove transitional branches from prototypes and
+   golden references that explicitly have no users.
 6. Run the relevant validators and the target project's actual Rails, Xcode, and Gradle checks.
 7. Report verified versions, tests run, device-only checks remaining, and any upstream APIs newer than this Skill's matrix.
 
@@ -30,6 +33,8 @@ Treat Rails as the product and the native projects as progressively enhanced cli
 - Remove only UI owned by the component on disconnect and native view destruction.
 - On Android, depend on the generic destination `Fragment`; do not cast every destination to `HotwireFragment`. Implement 1.3 view-lifecycle cleanup for view-owned UI.
 - Bundle a baseline path configuration and layer a cached/remote configuration over it. Treat later matching rules as property overrides.
+- Do not add a legacy-client fallback without inventorying deployed versions and recording its retirement trigger.
+  A no-user prototype should normally rebuild its clients and enforce the final contract instead.
 - Do not redistribute purchased book/newsletter text or commercial Bridge Components PRO source. Summarize independently and use permissively licensed examples.
 
 ## Route the task
@@ -41,6 +46,8 @@ Treat Rails as the product and the native projects as progressively enhanced cli
 | iOS/Android shell, tabs, routing, errors, logging | [shells-and-navigation.md](references/shells-and-navigation.md) |
 | Path rules, bundled/remote loading, cross-platform drift | [path-configuration.md](references/path-configuration.md) |
 | Bridge design, lifecycle, registration, payloads | [bridge-components.md](references/bridge-components.md) |
+| Push permission, token registration, APNs/FCM delivery | [push-notifications.md](references/push-notifications.md) |
+| Signing, builders, TestFlight/App Store handoff | [distribution-and-signing.md](references/distribution-and-signing.md) |
 | Tests, diagnostics, security, definition of done | [testing-and-diagnostics.md](references/testing-and-diagnostics.md) |
 
 ## Use deterministic checks

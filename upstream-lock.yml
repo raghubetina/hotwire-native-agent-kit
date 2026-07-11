@@ -1,4 +1,4 @@
-verified_on: "2026-07-10"
+verified_on: "2026-07-11"
 sources:
   hotwire_native_ios:
     repository: "https://github.com/hotwired/hotwire-native-ios"
@@ -14,6 +14,11 @@ sources:
     repository: "https://github.com/hotwired/hotwire-native-bridge"
     ref: "v1.2.2"
     commit: "6ab88808ad632291234166fab5ead48f9d8f913f"
+    license: "MIT"
+  action_push_native:
+    repository: "https://github.com/rails/action_push_native"
+    ref: "v0.3.1"
+    commit: "eac4b5228971fd1747b696ed7f45d40729b6ae6e"
     license: "MIT"
   bridge_components:
     repository: "https://github.com/joemasilotti/bridge-components"

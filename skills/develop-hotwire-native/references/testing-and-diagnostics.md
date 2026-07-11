@@ -18,6 +18,8 @@ Test the contract at the cheapest layer that can prove it, then smoke-test the n
 - Unit-test payload decoding, route decisions, and custom destination registration.
 - Test Bridge Component connect, reply, enable/disable, disconnect, and view recreation.
 - Test modal-to-modal, modal-to-default, tab reselection, cold deep link, and warm deep link.
+- Keep every app and test target on the intended deployment floor; a missing test-target setting can silently
+  inherit a newer default and make local and CI results diverge.
 - Keep debug WebView inspection and verbose logs out of release builds.
 
 ## Diagnostics
@@ -41,5 +43,5 @@ A change is done only when:
 - all affected platform contracts agree;
 - deterministic validators pass;
 - Rails and available native builds/tests pass;
-- fallback behavior is preserved;
+- fallback behavior required by an evidenced deployed-client contract is preserved;
 - device-only, signing, entitlement, privacy, and store-review checks are explicitly listed when not run.
