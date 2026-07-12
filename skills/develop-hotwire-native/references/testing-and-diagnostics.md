@@ -9,6 +9,9 @@ Test the contract at the cheapest layer that can prove it, then smoke-test the n
 - Test path-configuration endpoints, caching, content type, and backward compatibility.
 - Test usable HTML when no bridge component is advertised.
 - Test authentication expiry, logout, account switching, CSRF, and redirects without disabling protections globally.
+- For a web-owned shell interaction, prove the CSRF-protected endpoint and HTML fallback in Rails, the browser
+  API behavior in a JavaScript system test, and the resulting flow in the target WebView. Run path/Bridge
+  validators only when those contracts changed.
 - Fetch controller-rendered configuration URLs without a session and assert public cache headers, not only JSON shape.
 - Exercise protected routes with both native and ordinary-browser user agents so a native 401 branch cannot break the browser fallback.
 
@@ -20,6 +23,9 @@ Test the contract at the cheapest layer that can prove it, then smoke-test the n
 - Test modal-to-modal, modal-to-default, tab reselection, cold deep link, and warm deep link.
 - Keep every app and test target on the intended deployment floor; a missing test-target setting can silently
   inherit a newer default and make local and CI results diverge.
+- On GitHub-hosted macOS runners, run `xcrun simctl list` before `xcodebuild` so CoreSimulator recaches the
+  preinstalled runtimes and devices. If Xcode still reports only generic placeholder destinations, capture the
+  image version and available runtimes/devices and retry a fresh runner before downloading another platform.
 - Keep debug WebView inspection and verbose logs out of release builds.
 
 ## Diagnostics

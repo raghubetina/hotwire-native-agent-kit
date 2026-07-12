@@ -1,4 +1,4 @@
-verified_on: "2026-07-11"
+verified_on: "2026-07-12"
 sources:
   hotwire_native_ios:
     repository: "https://github.com/hotwired/hotwire-native-ios"
