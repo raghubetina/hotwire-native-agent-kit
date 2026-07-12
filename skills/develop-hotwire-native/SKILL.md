@@ -14,6 +14,10 @@ Treat Rails as the product and the native projects as progressively enhanced cli
 2. Read [compatibility-and-discovery.md](references/compatibility-and-discovery.md). Record the target's locked versions and packaging choices.
 3. Classify the requested feature:
    - Keep it on the web when responsive HTML provides sufficient fidelity.
+   - Browser APIs and same-origin Rails endpoints still count as web behavior. Scroll or viewport visibility
+     alone does not require a Bridge Component, native destination, or path rule.
+   - A web-owned destination must remain discoverable when the shell hides browser navigation. Prefer a
+     server-rendered native-variant link in an existing navigator before adding a native tab or destination.
    - Use a Bridge Component for one native control or device capability driven by usable web markup.
    - Use a native screen for a whole interaction requiring native performance, gestures, or SDKs.
 4. Load only the task-specific references in the routing table below.

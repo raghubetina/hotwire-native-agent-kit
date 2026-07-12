@@ -36,6 +36,29 @@ the exported archive/IPA rather than trusting project settings:
 Keep App Store Connect API keys, distribution certificates/private keys, and APNs provider keys separate. Remove
 temporary key/profile files from hosted runners even when the runner is ephemeral.
 
+## Separate untrusted builds from trusted signing
+
+A reusable workflow centralizes YAML; it is not a signing-secret boundary. When another repository calls it,
+GitHub runs the called workflow in the caller's context and a checkout reads the caller's code. Treat source,
+build phases, package plugins, and dependencies as able to observe every secret available to that job.
+
+When the code owner and signing owner differ, use separate security domains:
+
+1. compile and test without signing credentials, pinning the immutable source revision;
+2. attest and transfer the resulting archive through a controlled artifact channel;
+3. sign, verify, and upload in an isolated job that does not run source-controlled build phases.
+
+Prove the exact archive/export path before promising this split. If the toolchain cannot sign the unsigned
+artifact without rebuilding, rebuild an explicitly approved immutable revision inside the trusted boundary.
+Do not inject organization signing credentials into a caller-controlled workflow merely to avoid the second
+build. Environment approvals delay secret access but do not make code executed afterward trustworthy.
+
+On disposable macOS runners, automatic provisioning can create a fresh development certificate whose private key
+dies with the runner while the account certificate remains. Prove two clean-runner builds and inspect the account
+after each. Prefer reusable signing material imported into a temporary keychain plus a separate narrowly scoped
+upload key; do not describe API-key-only automatic provisioning as stateless until its certificate lifecycle is
+bounded and verified.
+
 ## Test at the layer that proves the claim
 
 - A browser proves the Rails product.
@@ -53,3 +76,5 @@ Primary references:
 - <https://developer.apple.com/help/account/keys/create-a-private-key/>
 - <https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview>
 - <https://developer.apple.com/xcode-cloud/>
+- <https://docs.github.com/en/actions/concepts/workflows-and-actions/reusing-workflow-configurations>
+- <https://docs.github.com/en/actions/reference/security/secure-use>

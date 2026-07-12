@@ -10,6 +10,9 @@ Audit the existing application before adding native projects. A native shell amp
 - Confirm cookies, CSRF protection, session expiry, logout, account switching, and unauthorized responses.
 - Identify CSP restrictions, third-party widgets, downloads, uploads, camera/file inputs, OAuth, and external domains.
 - Make layouts responsive without relying on native user-agent detection for basic usability.
+- Treat standards-based WebView interactions as web behavior: browser APIs such as `IntersectionObserver`,
+  same-origin CSRF-protected requests, and ordinary Rails routes need usable HTML fallbacks and WebView smoke
+  coverage, not automatically a Bridge Component or path rule.
 
 `turbo-rails` exposes `hotwire_native_app?` and the legacy alias `turbo_native_app?`. Use native detection to enhance presentation, not to remove the web fallback.
 

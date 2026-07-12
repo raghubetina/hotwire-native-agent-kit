@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 - 2026-07-12
+
+- Keep standards-based WebView behavior on the web unless a native capability actually requires a Bridge or
+  destination, and require native shells to preserve discoverability when browser chrome is absent.
+- Add GitHub-hosted simulator bootstrap diagnostics for missing placeholder destinations.
+- Separate untrusted compilation from trusted signing and document why a reusable workflow alone does not
+  isolate organization credentials from caller-controlled source.
+- Record the disposable-runner certificate lifecycle discovered by repeated clean-runner signing experiments.
+
 ## 0.2.0 - 2026-07-11
 
 - Add end-to-end push-notification guidance, including authenticated registration, per-device APNs environment
