@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2 - 2026-07-13
+
+- Narrow managed-preview guidance to the generated app's artifact, capability, ownership, and expiration
+  contract.
+- Move service-provider concerns such as GitHub App authorization, artifact ingestion, signing-key custody,
+  provisioning, uploads, and tester administration out of the app-maintainer Skill.
+- Retain app-owner signing, final IPA verification, TestFlight, and App Store distribution guidance.
+
 ## 0.2.1 - 2026-07-12
 
 - Keep standards-based WebView behavior on the web unless a native capability actually requires a Bridge or
