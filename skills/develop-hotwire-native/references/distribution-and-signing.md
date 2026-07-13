@@ -10,7 +10,8 @@ Xcode must run on macOS somewhere, but that Mac may belong to the owner, CI, a b
 - TestFlight and App Store distribution require an active Apple Developer Program membership for the team that owns
   the app, regardless of whether Xcode runs locally, on GitHub-hosted macOS, Xcode Cloud, or another Mac service.
 - A service can build under the app owner's team using narrowly stored owner credentials, or under the service's
-  team for a managed preview. Those are different ownership and handoff models; state which one applies.
+  team for a managed preview. Those are different ownership and handoff models; state which one applies and
+  follow the service's documented app-side contract.
 - A TestFlight-only app is a time-limited preview. Do not promise permanent distribution or assume it can be
   transferred without checking Apple's current transfer criteria.
 
@@ -36,28 +37,23 @@ the exported archive/IPA rather than trusting project settings:
 Keep App Store Connect API keys, distribution certificates/private keys, and APNs provider keys separate. Remove
 temporary key/profile files from hosted runners even when the runner is ephemeral.
 
-## Separate untrusted builds from trusted signing
+## Keep service-provider operations outside the app
 
-A reusable workflow centralizes YAML; it is not a signing-secret boundary. When another repository calls it,
-GitHub runs the called workflow in the caller's context and a checkout reads the caller's code. Treat source,
-build phases, package plugins, and dependencies as able to observe every secret available to that job.
+When another organization signs a managed preview, this Skill owns only the app-facing contract: keep the
+source-owned Xcode project reproducible, emit the documented credential-free artifact, preserve requested
+capabilities, and make the ownership and expiration limits visible to the owner. Never place the provider's
+signing or App Store credentials in the app repository or its CI.
 
-When the code owner and signing owner differ, use separate security domains:
+Do not design or operate the provider's GitHub App, artifact downloader, safe extractor, policy registry,
+build-number allocator, key store, signer, uploader, or tester administration from the generated app. Those
+belong to the provider's private control plane and its operator documentation. If asked to change that service,
+switch to its own repository and instructions rather than expanding this Skill.
 
-1. compile and test without signing credentials, pinning the immutable source revision;
-2. attest and transfer the resulting archive through a controlled artifact channel;
-3. sign, verify, and upload in an isolated job that does not run source-controlled build phases.
-
-Prove the exact archive/export path before promising this split. If the toolchain cannot sign the unsigned
-artifact without rebuilding, rebuild an explicitly approved immutable revision inside the trusted boundary.
-Do not inject organization signing credentials into a caller-controlled workflow merely to avoid the second
-build. Environment approvals delay secret access but do not make code executed afterward trustworthy.
-
-On disposable macOS runners, automatic provisioning can create a fresh development certificate whose private key
-dies with the runner while the account certificate remains. Prove two clean-runner builds and inspect the account
-after each. Prefer reusable signing material imported into a temporary keychain plus a separate narrowly scoped
-upload key; do not describe API-key-only automatic provisioning as stateless until its certificate lifecycle is
-bounded and verified.
+For an app owner signing under their own team, ordinary local or CI distribution remains in scope. Pin the
+source revision and toolchain, import reusable signing material into a temporary keychain, use a separate
+narrowly scoped upload key, remove temporary credentials, and verify the exported IPA. On disposable macOS
+runners, avoid automatic provisioning that leaves undeletable account-side certificates after the runner and
+its private key disappear.
 
 ## Test at the layer that proves the claim
 
@@ -67,9 +63,10 @@ bounded and verified.
 - An Xcode-installed physical build proves development signing and Sandbox capabilities.
 - TestFlight proves production signing, Production APNs registration, beta installation, and store packaging.
 
-Automate tests, archive verification, upload, and tester assignment when APIs permit. Keep the remaining account-
-holder steps in an explicit walkthrough or generated first-steps checklist rather than hiding them in tribal
-knowledge.
+When the owner distributes under their own team, automate tests, archive verification, upload, and tester
+assignment when APIs permit. Keep the remaining account-holder steps in an explicit walkthrough or generated
+first-steps checklist rather than hiding them in tribal knowledge. For a managed preview, follow the provider's
+public workflow and leave its private tester operations to the provider.
 
 Primary references:
 
