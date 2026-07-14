@@ -1,4 +1,33 @@
 verified_on: "2026-07-12"
+deployment_documentation_verified_on: "2026-07-14"
+deployment_documentation:
+  apple_developer_account:
+    url: "https://developer.apple.com/help/account/basics/about-your-developer-account/"
+    verified_on: "2026-07-14"
+  apple_supported_capabilities:
+    url: "https://developer.apple.com/help/account/reference/supported-capabilities-ios/"
+    verified_on: "2026-07-14"
+  apple_testflight:
+    url: "https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/"
+    verified_on: "2026-07-14"
+  apple_apns_tokens:
+    url: "https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns"
+    verified_on: "2026-07-14"
+  apple_provisioning_profiles:
+    url: "https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles"
+    verified_on: "2026-07-14"
+  github_actions_security:
+    url: "https://docs.github.com/en/actions/reference/security/secure-use"
+    verified_on: "2026-07-14"
+  github_environments:
+    url: "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments"
+    verified_on: "2026-07-14"
+  fastlane_pilot:
+    url: "https://docs.fastlane.tools/actions/pilot/"
+    verified_on: "2026-07-14"
+  xcodegen:
+    url: "https://github.com/yonaskolb/XcodeGen"
+    verified_on: "2026-07-14"
 sources:
   hotwire_native_ios:
     repository: "https://github.com/hotwired/hotwire-native-ios"

@@ -1,7 +1,7 @@
 {
   "name": "hotwire-native-agent-kit",
-  "version": "0.0.1",
-  "description": "Audit, build, upgrade, push, sign, and debug Rails-powered Hotwire Native apps.",
+  "version": "0.0.2",
+  "description": "Develop, verify, and deploy Rails-powered Hotwire Native apps.",
   "author": {
     "name": "Raghu Betina",
     "url": "https://github.com/raghubetina"
@@ -13,15 +13,15 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Hotwire Native Agent Kit (Unofficial)",
-    "shortDescription": "Develop verified Rails-powered native apps",
-    "longDescription": "Audit Rails applications, implement Hotwire Native iOS and Android clients, validate navigation, Bridge Components, push, signing, and distribution, and diagnose version or lifecycle failures.",
+    "shortDescription": "Develop and deploy owned Hotwire Native apps",
+    "longDescription": "Audit Rails applications, implement Hotwire Native iOS and Android clients, validate navigation, Bridge Components, and push, then prepare owner-controlled iOS environments, signing, CI, and TestFlight distribution.",
     "developerName": "Raghu Betina",
     "category": "Productivity",
     "capabilities": ["Interactive", "Write"],
     "defaultPrompt": [
       "Audit this Rails app for Hotwire Native readiness.",
       "Build the next verified iOS, Android, or push slice.",
-      "Diagnose this Hotwire Native bridge failure."
+      "Audit this app's owner-controlled iOS deployment path."
     ]
   }
 }

@@ -4,24 +4,41 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@6e5d382445ae5590b7449d8b3bc8cb1c2c27f617 # v1.317.0
         with:
           ruby-version: "3.3"
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: "24"
       - name: Test Skill scripts
         run: ruby skills/develop-hotwire-native/scripts/test.rb
       - name: Test live and streaming path configurations
         run: ruby skills/develop-hotwire-native/scripts/test_validate_path_config.rb
+      - name: Check deployment script syntax
+        run: |
+          ruby -c skills/deploy-hotwire-native-ios/scripts/audit_project.rb
+          ruby -c skills/deploy-hotwire-native-ios/scripts/inspect_artifact.rb
+          ruby -c skills/deploy-hotwire-native-ios/scripts/lib/deploy_ios_support.rb
+      - name: Test release verifier
+        run: ruby script/test_verify.rb
       - name: Verify release structure
         run: ruby script/verify
       - name: Parse bundled JSON
@@ -32,3 +49,18 @@ jobs:
           .codex-plugin/plugin.json
       - name: Check bundled JavaScript
         run: node --check skills/develop-hotwire-native/assets/templates/bridge-form/form_controller.js
+
+  test-deployment-tools:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@6e5d382445ae5590b7449d8b3bc8cb1c2c27f617 # v1.317.0
+        with:
+          ruby-version: "3.3"
+      - name: Test deployment verification tools
+        run: ruby skills/deploy-hotwire-native-ios/scripts/test.rb

@@ -69,4 +69,6 @@ A change is done only when:
 - deterministic validators pass;
 - Rails and available native builds/tests pass;
 - fallback behavior required by an evidenced deployed-client contract is preserved;
-- device-only, signing, entitlement, privacy, and store-review checks are explicitly listed when not run.
+- device-only, signing, entitlement, privacy, and store-review checks are explicitly handed off or listed when
+  not run. Use `deploy-hotwire-native-ios` for the Apple deployment checks when it is installed; otherwise report
+  the missing sibling Skill instead of improvising account or release operations.

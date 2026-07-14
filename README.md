@@ -1,19 +1,19 @@
 # Hotwire Native Agent Kit
 
-An unofficial, agent-oriented toolkit for developing Hotwire Native iOS and Android clients for existing Rails applications.
+An unofficial, agent-oriented toolkit for developing and deploying owned Hotwire Native applications backed by Rails.
 
-The repository currently publishes one portable Agent Skill, `develop-hotwire-native`. It helps an AI coding agent:
+The repository separates two jobs that are often mixed together:
 
-- audit a Rails application and its resolved Hotwire Native dependencies before making changes;
-- build or debug iOS and Android shells, navigation, tabs, and path configuration;
-- implement three-sided Bridge Components across Rails, Swift, and Kotlin;
-- integrate and diagnose push notifications;
-- reason about signing, hosted builders, TestFlight, and App Store handoff; and
-- validate common cross-platform contract and lifecycle failures.
+| Skill | Use it for |
+| --- | --- |
+| `develop-hotwire-native` | Audit a Rails app; build or debug iOS/Android shells, navigation, path configuration, Bridge Components, push registration, and cross-platform lifecycle behavior |
+| `deploy-hotwire-native-ios` | Choose iOS build/distribution lanes; configure environments; run Simulator or direct-device workflows; manage owner signing/provisioning; verify signed artifacts; and prepare TestFlight/App Store delivery |
 
-This is for people maintaining an existing Rails application with an AI coding agent. It is not a standalone app generator or a managed build and signing service.
+Both Skills are for people who own the ordinary Rails and native source. They are not a standalone app generator or a managed build/signing service. A provider that offers managed TestFlight previews must keep its credential custody, artifact admission, signing policy, uploads, and tester administration in its own private control plane.
 
-## Quick start
+The reviewed `v0.0.2` release contains both Skills. Install them independently so each target repository receives only the guidance it needs.
+
+## Quick start: application development
 
 You need:
 
@@ -22,26 +22,44 @@ You need:
 - Ruby to run the bundled audits and validators; and
 - access to Xcode on a Mac or the Android toolchain when the requested work needs that platform to compile; a hosted runner is fine.
 
-From the Rails repository, install the reviewed `v0.0.1` release at project scope:
+From the Rails repository, install the reviewed release at project scope:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
-  develop-hotwire-native@v0.0.1 \
+  develop-hotwire-native@v0.0.2 \
   --agent codex \
   --scope project
 ```
 
-Then ask your agent to inspect the application before changing it:
+Then ask your agent to inspect before changing the app:
 
 > Use the develop-hotwire-native skill to audit this Rails app for Hotwire Native readiness. Do not make changes yet. Report the resolved versions, what already exists, what is missing, and the smallest useful next slice.
 
-After reviewing the audit, ask for one complete slice—for example, an iOS shell, durable path configuration, a three-sided Bridge Component, push registration, or a specific lifecycle bug fix.
+After reviewing the audit, request one complete slice—for example, an iOS shell, durable path configuration, a three-sided Bridge Component, push registration, or a specific lifecycle fix.
 
-The core Skill follows the open Agent Skills layout and is agent-agnostic. To install it for another agent supported by `gh skill`, change the `--agent` value; run `gh skill install --help` to see the current list.
+## Quick start: iOS deployment
+
+Install the deployment Skill independently in the application repository:
+
+```sh
+gh skill install raghubetina/hotwire-native-agent-kit \
+  deploy-hotwire-native-ios@v0.0.2 \
+  --agent codex \
+  --scope project
+```
+
+Its first useful prompt should identify the ownership and evidence boundary before changing signing:
+
+> Use the deploy-hotwire-native-ios skill to audit this app's iOS deployment path. Do not change credentials or Apple resources. Report who owns the source and Apple team, where Xcode runs, the Development/Staging/Production configuration, available install channels, and the smallest next proof.
+
+The deployment Skill deliberately does not assume that every user needs a paid Apple account. It distinguishes browser, Simulator, free Personal Team, paid-team direct device, TestFlight, and App Store paths, then asks for the least expensive path that proves the requested claim.
+
+When one task crosses product behavior and Apple deployment, install both Skills at the same release tag. If only one
+is installed, its agent should report the missing handoff rather than absorbing the other Skill's responsibilities.
 
 ## Installation choices
 
-The pinned, project-scoped command above is recommended for a first trial because it keeps the installation inside the target repository. Commit the installed Skill files if everyone working in the repository should share the same version.
+The pinned, project-scoped command is recommended for a first trial because it keeps the installation inside the target repository. Commit installed Skill files when everyone working in that repository should share the same reviewed version.
 
 To follow the latest published release instead of pinning a version:
 
@@ -52,7 +70,7 @@ gh skill install raghubetina/hotwire-native-agent-kit \
   --scope project
 ```
 
-To make the Skill available to the agent across all of your projects, use user scope:
+To make a released Skill available across projects, use `--scope user`:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
@@ -75,39 +93,57 @@ gh skill update develop-hotwire-native
 
 Pinned installations are intentionally skipped by `gh skill update`. Review a newer release and reinstall it with an explicit tag when you want to move the pin.
 
-Version `0.0.1` is published as a portable Agent Skill. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
+The core Skills follow the open Agent Skills layout and remain agent-agnostic. Change `--agent` to another host supported by `gh skill`; run `gh skill install --help` for the current list.
+
+Version `0.0.2` is published as portable Agent Skills. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
 
 ## Scope and limits
 
-- The project audit is static evidence, not runtime verification. The agent must still exercise relevant Rails endpoints, native builds, simulators, and physical devices.
-- The Skill inspects locked dependencies before giving version-sensitive advice and does not authorize dependency or deployment-target upgrades on its own.
-- Bundled path-configuration and Bridge Component templates are starting points. They must be adapted to the target app and compiled there.
-- iOS signing, push delivery, universal links, camera access, and similar capabilities require final verification on appropriate devices and distribution builds.
-- The application owns its source, capabilities, artifact contract, and signing handoff. The Skill does not operate a provider's GitHub App, artifact ingestion, signing-key custody, provisioning service, upload service, or tester administration.
+### `develop-hotwire-native`
+
+- Its static audit is orientation, not runtime verification.
+- It inspects locked dependencies before version-sensitive advice and does not authorize upgrades on its own.
+- Bundled path and Bridge templates must be adapted and compiled in the target app.
+- Device-only push, Universal Links, AutoFill, camera, and lifecycle behavior still require appropriate physical tests.
+
+### `deploy-hotwire-native-ios`
+
+- The supported Apple-toolchain path runs Xcode command-line tools on macOS somewhere, but the GUI need not be the daily interface.
+- Unsigned compilation, Development signing, final entitlements, TestFlight processing, and physical receipt are separate proof levels.
+- Apple-account limits, runner images, roles, and review rules are date-sensitive; the Skill routes agents to current primary sources and installed tool help.
+- Owner signing is in scope. A third-party provider's private signing service is not.
 
 ## Verified baseline
 
-The `v0.0.1` guidance and fixtures were verified on July 14, 2026 against:
+The `v0.0.2` development guidance and fixtures were verified on July 14, 2026 against:
 
 - Hotwire Native iOS 1.3.0
 - Hotwire Native Android 1.3.0
 - Hotwire Native Bridge 1.2.2
 - Action Push Native 0.3.1
 
-The compatibility matrix is a tested baseline, not permission to upgrade a target application automatically. The Skill audits the application's resolved dependencies before recommending APIs or changes.
+The deployment Skill starts from physical-device, TestFlight, GitHub-hosted macOS, XcodeGen, and APNs experiments. Its support-status reference distinguishes proven paths from advisory guidance; an earlier proof level never substitutes for an unrun Personal Team, App Store, or device-capability test.
 
 ## For contributors
 
-The repository is the canonical release source. Host-specific manifests and presentation metadata remain thin wrappers around the portable Skill.
+The repository is the canonical release source. Host-specific manifests and presentation metadata remain thin wrappers around the portable Skills.
 
 ```text
 .codex-plugin/plugin.json
-skills/develop-hotwire-native/
-  SKILL.md
-  agents/openai.yaml
-  assets/
-  references/
-  scripts/
+skills/
+  develop-hotwire-native/
+    LICENSE
+    SKILL.md
+    agents/openai.yaml
+    assets/
+    references/
+    scripts/
+  deploy-hotwire-native-ios/
+    LICENSE
+    SKILL.md
+    agents/openai.yaml
+    references/
+    scripts/
 upstream-lock.yml
 ```
 
