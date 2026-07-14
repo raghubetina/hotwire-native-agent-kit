@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.2 - 2026-07-14
+
+- Add the public `deploy-hotwire-native-ios` Skill for owner-controlled environment lanes, direct-device builds,
+  Ad Hoc distribution, signing, provisioning, deterministic deployment/artifact inspection, CI, TestFlight, and
+  App Store handoff.
+- Narrow `develop-hotwire-native` to product-facing Rails/iOS/Android implementation and runtime behavior.
+- Keep managed-signing provider control-plane operations outside both public Skills.
+- Add explicit owner-approval, credential-lifecycle, release-provenance, and untrusted-build boundaries.
+- Fail closed when signed artifacts lack an authorized profile/certificate, carry an unexpected provisioning channel,
+  omit source provenance, or request an entitlement the inspector does not model yet.
+- Replace private and transient experiment links with a public support-status contract that labels advisory paths.
+- Pin the kit's own CI actions and strengthen release-structure verification.
+
 ## 0.0.1 - 2026-07-14
 
 - Add the `develop-hotwire-native` Skill for auditing, building, upgrading, and debugging Rails-powered iOS and Android clients.

@@ -8,6 +8,10 @@ Place `ios/` and `android/` inside the Rails repository when the shells share on
 
 Before scaffolding, discover or request the native project location, product/display names, bundle/application IDs, minimum OS versions, signing team, URL schemes, and associated-domain/deep-link entitlements. These are product identifiers, not implementation defaults.
 
+Keep one ordinary source-owned native project as the canonical application. A reviewable generator such as
+XcodeGen may define project metadata while the generated project remains committed for a zero-setup open, but do
+not maintain a parallel Swift Playground or generic preview wrapper that can drift from the shipping client.
+
 ## Scaffold the first web-only slice
 
 Use the platform's normal project generator, then adapt the exact tagged upstream demo. Do not hand-author opaque Xcode project or Gradle wrapper internals when the installed IDE can generate them.
@@ -69,4 +73,4 @@ For a tab shell, the minimum application-owned surface is normally an `Applicati
 - A remote configuration must remain compatible with every deployed app version that can fetch it.
 - Cold launch, warm deep link, already-selected tab, background resume, and unauthorized responses are different paths; test them separately.
 
-Do not scaffold signing credentials, production domains, bundle IDs, or deep-link entitlements from guesses. Discover or request those project facts.
+Do not scaffold signing credentials, production domains, bundle IDs, or deep-link entitlements from guesses. Discover or request those project facts. Hand Apple signing, provisioning, environment-lane, TestFlight, and App Store work to the deployment workflow after the application contract is ready.

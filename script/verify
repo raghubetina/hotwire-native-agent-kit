@@ -2,76 +2,370 @@
 # frozen_string_literal: true
 
 require "json"
+require "date"
+# `pathname` is not loaded by the same standard-library dependencies on every supported Ruby.
+# standard:disable Lint/RedundantRequireStatement
 require "pathname"
+# standard:enable Lint/RedundantRequireStatement
+require "uri"
 require "yaml"
 
+EXPECTED_SKILLS = %w[
+  deploy-hotwire-native-ios
+  develop-hotwire-native
+].freeze
+EXPECTED_REFERENCES = {
+  "deploy-hotwire-native-ios" => %w[
+    ad-hoc.md
+    app-store-handoff.md
+    ci-and-testflight.md
+    direct-device.md
+    project-and-environments.md
+    signing-and-capabilities.md
+    support-status.md
+    troubleshooting.md
+    workflow-selection.md
+  ],
+  "develop-hotwire-native" => %w[
+    bridge-components.md
+    compatibility-and-discovery.md
+    path-configuration.md
+    push-notifications.md
+    rails-readiness.md
+    shells-and-navigation.md
+    testing-and-diagnostics.md
+  ]
+}.freeze
+EXPECTED_SCRIPT_PATHS = {
+  "deploy-hotwire-native-ios" => %w[
+    scripts/audit_project.rb
+    scripts/inspect_artifact.rb
+    scripts/lib/deploy_ios_support.rb
+    scripts/test.rb
+  ],
+  "develop-hotwire-native" => %w[
+    scripts/audit_project.rb
+    scripts/test.rb
+    scripts/test_validate_path_config.rb
+    scripts/validate_bridge_contract.rb
+    scripts/validate_path_config.rb
+  ]
+}.freeze
+VERSION_PATTERN = /\A\d+\.\d+\.\d+\z/
+CONFLICT_MARKER_PATTERN = /^(?:<{7}(?: .*)?|={7}|>{7}(?: .*)?)$/
+PROHIBITED_SECRET_FILENAMES = /(?:\.cer|\.key|\.mobileprovision|\.p12|\.p8|\.pfx|\.provisionprofile)\z/i
+
 root = Pathname.new(__dir__).join("..").expand_path
-skill = root.join("skills/develop-hotwire-native")
 errors = []
 
-skill_markdown = skill.join("SKILL.md").read
-errors << "Skill frontmatter name does not match its directory." unless skill_markdown.match?(/^name: develop-hotwire-native$/)
-
-%w[push-notifications.md distribution-and-signing.md].each do |reference|
-  errors << "Missing task reference #{reference}." unless skill.join("references", reference).file?
-  errors << "SKILL.md does not route to #{reference}." unless skill_markdown.include?("references/#{reference}")
+relative = lambda do |path|
+  Pathname.new(path).relative_path_from(root).to_s
 end
 
-agent_neutral_markdown = [skill.join("SKILL.md"), *skill.join("references").glob("*.md")].map(&:read).join("\n")
+read_yaml = lambda do |path|
+  parsed = YAML.safe_load(path.read, permitted_classes: [], permitted_symbols: [], aliases: false)
+  unless parsed.is_a?(Hash)
+    errors << "#{relative.call(path)} must contain a YAML mapping."
+    next {}
+  end
+
+  parsed
+rescue Psych::Exception => error
+  errors << "#{relative.call(path)} is not valid YAML: #{error.message.lines.first.strip}"
+  {}
+end
+
+read_json = lambda do |path|
+  JSON.parse(path.read)
+rescue JSON::ParserError => error
+  errors << "#{relative.call(path)} is not valid JSON: #{error.message.lines.first.strip}"
+  {}
+end
+
+valid_date = lambda do |value|
+  Date.iso8601(value.to_s)
+  true
+rescue Date::Error
+  false
+end
+
+valid_https_url = lambda do |value|
+  uri = URI.parse(value.to_s)
+  uri.is_a?(URI::HTTPS) && !uri.host.to_s.empty? && uri.userinfo.nil?
+rescue URI::InvalidURIError
+  false
+end
+
+repository_entries = Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).reject do |path|
+  path == root.join(".").to_s || path == root.join("..").to_s || path == root.join(".git").to_s || path.include?("/.git/")
+end
+repository_files = repository_entries.select { |path| File.file?(path) }
+private_home_prefix = "/" + "Users/"
+private_key_markers = ["PRIVATE KEY", "ENCRYPTED PRIVATE KEY", "RSA PRIVATE KEY", "EC PRIVATE KEY", "DSA PRIVATE KEY", "OPENSSH PRIVATE KEY"].map do |label|
+  ["-----BEGIN", "#{label}-----"].join(" ")
+end
+
+repository_entries.select { |path| File.symlink?(path) }.each do |path|
+  errors << "#{relative.call(path)} is a symlink; release contents must be self-contained."
+end
+
+repository_files.each do |path|
+  rel = relative.call(path)
+  basename = File.basename(path)
+  errors << "#{rel} looks like signing or API-key material and must not be released." if basename.match?(PROHIBITED_SECRET_FILENAMES)
+
+  content = File.binread(path).dup.force_encoding(Encoding::UTF_8)
+  next unless content.valid_encoding?
+
+  content.each_line.with_index(1) do |line, line_number|
+    errors << "#{rel}:#{line_number} contains an unresolved merge-conflict marker." if line.chomp.match?(CONFLICT_MARKER_PATTERN)
+  end
+
+  private_key_payload = private_key_markers.any? do |marker|
+    content.match?(/#{Regexp.escape(marker)}[ \t]*\r?\n[A-Za-z0-9+\/=]{32,}/)
+  end
+  if private_key_payload
+    errors << "#{rel} contains private-key material and must not be released."
+  end
+  errors << "#{rel} contains a private absolute path." if content.include?(private_home_prefix)
+end
+
+workflow_files = root.join(".github/workflows").glob("*.{yml,yaml}")
+workflow_files.each do |path|
+  path.read.scan(/^\s*-?\s*uses:\s*([^\s#]+)/).flatten.each do |action|
+    next if action.start_with?("./")
+
+    errors << "#{relative.call(path)} must pin #{action} to a full commit SHA." unless action.match?(/@[0-9a-f]{40}\z/i)
+  end
+end
+
+ci_path = root.join(".github/workflows/ci.yml")
+if ci_path.file?
+  ci = ci_path.read
+  unless ci.include?("runs-on: macos-15") && ci.include?("ruby skills/deploy-hotwire-native-ios/scripts/test.rb")
+    errors << ".github/workflows/ci.yml must test the iOS deployment tools on the pinned macOS runner."
+  end
+else
+  errors << "Missing .github/workflows/ci.yml."
+end
+
+skills_root = root.join("skills")
+actual_skill_names = if skills_root.directory?
+  skills_root.children.select(&:directory?).reject { |path| path.basename.to_s.start_with?(".") }.map { |path| path.basename.to_s }.sort
+else
+  errors << "Missing skills directory."
+  []
+end
+
+unless actual_skill_names == EXPECTED_SKILLS.sort
+  errors << "Skill inventory mismatch: expected #{EXPECTED_SKILLS.sort.join(", ")}, found #{actual_skill_names.join(", ")}."
+end
+
+skills = EXPECTED_SKILLS.to_h { |name| [name, skills_root.join(name)] }
+skill_markdowns = {}
+
+skills.each do |name, skill|
+  skill_file = skill.join("SKILL.md")
+  unless skill_file.file?
+    errors << "Missing skills/#{name}/SKILL.md."
+    skill_markdowns[name] = ""
+    next
+  end
+
+  markdown = skill_file.read
+  skill_markdowns[name] = markdown
+  frontmatter_text = markdown[/\A---\s*\n(.*?)\n---\s*\n/m, 1]
+  if frontmatter_text.nil?
+    errors << "skills/#{name}/SKILL.md is missing YAML frontmatter."
+  else
+    begin
+      frontmatter = YAML.safe_load(frontmatter_text, permitted_classes: [], permitted_symbols: [], aliases: false)
+      if frontmatter.is_a?(Hash)
+        unexpected_keys = frontmatter.keys.map(&:to_s) - %w[name description]
+        errors << "skills/#{name}/SKILL.md frontmatter has unsupported keys: #{unexpected_keys.sort.join(", ")}." unless unexpected_keys.empty?
+        errors << "#{name} frontmatter name does not match its directory." unless frontmatter["name"] == name
+        errors << "#{name} frontmatter description is missing." unless frontmatter["description"].is_a?(String) && !frontmatter["description"].strip.empty?
+      else
+        errors << "skills/#{name}/SKILL.md frontmatter must be a YAML mapping."
+      end
+    rescue Psych::Exception => error
+      errors << "skills/#{name}/SKILL.md frontmatter is invalid YAML: #{error.message.lines.first.strip}"
+    end
+  end
+
+  agent_metadata = skill.join("agents/openai.yaml")
+  if agent_metadata.file?
+    metadata = read_yaml.call(agent_metadata)
+    interface = metadata["interface"]
+    default_prompt = interface.is_a?(Hash) ? interface["default_prompt"] : nil
+    errors << "#{name}/agents/openai.yaml default_prompt must invoke $#{name}." unless default_prompt.is_a?(String) && default_prompt.include?("$#{name}")
+  else
+    errors << "Missing skills/#{name}/agents/openai.yaml."
+  end
+
+  references_root = skill.join("references")
+  routed_references = markdown.scan(/\]\(references\/([^)#]+\.md)(?:#[^)]+)?\)/).flatten.sort
+  actual_references = if references_root.directory?
+    references_root.glob("*.md").map { |path| path.basename.to_s }.sort
+  else
+    []
+  end
+
+  expected_references = EXPECTED_REFERENCES.fetch(name).sort
+  unless actual_references == expected_references
+    errors << "#{name} reference inventory mismatch: expected #{expected_references.join(", ")}, found #{actual_references.join(", ")}."
+  end
+
+  missing_routes = actual_references - routed_references
+  missing_files = routed_references - actual_references
+  errors << "#{name}/SKILL.md does not route to: #{missing_routes.join(", ")}." unless missing_routes.empty?
+  errors << "#{name}/SKILL.md routes to missing references: #{missing_files.join(", ")}." unless missing_files.empty?
+
+  expected_scripts = EXPECTED_SCRIPT_PATHS.fetch(name)
+  missing_scripts = expected_scripts.reject { |path| skill.join(path).file? }
+  errors << "#{name} is missing required scripts: #{missing_scripts.join(", ")}." unless missing_scripts.empty?
+
+  license = skill.join("LICENSE")
+  errors << "#{name} is missing its independently installable LICENSE." unless license.file?
+  if license.file? && root.join("LICENSE").file? && license.read.rstrip != root.join("LICENSE").read.rstrip
+    errors << "#{name}/LICENSE does not match the kit's MIT license."
+  end
+end
+
+if skills.fetch("develop-hotwire-native").join("references/distribution-and-signing.md").exist?
+  errors << "Deployment guidance still lives inside develop-hotwire-native."
+end
+
+agent_neutral_markdown = skills.values.flat_map do |skill|
+  [skill.join("SKILL.md"), *skill.join("references").glob("*.md")].select(&:file?).map(&:read)
+end.join("\n")
+
 %w[Codex Claude Gemini Cursor].each do |host|
-  errors << "Core Skill mentions host-specific name #{host.inspect}." if agent_neutral_markdown.match?(/\b#{Regexp.escape(host)}\b/)
+  errors << "Core Skills mention host-specific name #{host.inspect}." if agent_neutral_markdown.match?(/\b#{Regexp.escape(host)}\b/)
 end
 
-manifest = JSON.parse(root.join(".codex-plugin/plugin.json").read)
-version = manifest.fetch("version")
+manifest_path = root.join(".codex-plugin/plugin.json")
+manifest = manifest_path.file? ? read_json.call(manifest_path) : {}
+errors << "Missing .codex-plugin/plugin.json." unless manifest_path.file?
+unless manifest.is_a?(Hash)
+  errors << ".codex-plugin/plugin.json must contain a JSON object."
+  manifest = {}
+end
+version = manifest["version"].to_s
 errors << "Plugin name is inconsistent." unless manifest["name"] == "hotwire-native-agent-kit"
-errors << "Changelog does not contain version #{version}." unless root.join("CHANGELOG.md").read.include?("## #{version} -")
+errors << "Plugin version #{version.inspect} is not a semantic version." unless version.match?(VERSION_PATTERN)
+errors << "Plugin Skill path must be ./skills/." unless manifest["skills"] == "./skills/"
+manifest_interface = manifest["interface"]
+default_prompts = manifest_interface.is_a?(Hash) ? manifest_interface["defaultPrompt"] : nil
+errors << "Plugin defaultPrompt must contain one to three prompts." unless default_prompts.is_a?(Array) && default_prompts.length.between?(1, 3)
 
-lock = YAML.load_file(root.join("upstream-lock.yml"))
-lock.fetch("sources").each do |name, source|
-  errors << "#{name} is missing an immutable commit." unless source.fetch("commit", "").match?(/\A[0-9a-f]{40}\z/)
+changelog_path = root.join("CHANGELOG.md")
+changelog = changelog_path.file? ? changelog_path.read : ""
+errors << "Missing CHANGELOG.md." unless changelog_path.file?
+release_headings = changelog.scan(/^## (\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})\s*$/)
+release_versions = release_headings.map(&:first)
+errors << "The first changelog release must be the plugin version #{version}." unless release_versions.first == version
+errors << "Changelog must contain version #{version} exactly once." unless release_versions.count(version) == 1
+duplicates = release_versions.group_by(&:itself).select { |_release, copies| copies.length > 1 }.keys
+errors << "Changelog contains duplicate release headings: #{duplicates.join(", ")}." unless duplicates.empty?
+
+current_release = if version.match?(VERSION_PATTERN)
+  changelog[/^## #{Regexp.escape(version)} - \d{4}-\d{2}-\d{2}\s*$\n(.*?)(?=^## |\z)/m, 1]
+end
+errors << "Changelog does not contain an exact current release section for #{version}." unless current_release
+if current_release
+  EXPECTED_SKILLS.each do |name|
+    errors << "Current changelog release does not identify packaged Skill #{name}." unless current_release.include?("`#{name}`")
+  end
 end
 
-licenses = skill.join("assets/templates/bridge-form/LICENSES.md")
+readme_path = root.join("README.md")
+readme = readme_path.file? ? readme_path.read : ""
+errors << "Missing README.md." unless readme_path.file?
+errors << "README reviewed-release declaration does not match v#{version}." unless readme.include?("reviewed `v#{version}` release")
+readme.scan(/@v(\d+\.\d+\.\d+)/).flatten.uniq.each do |pinned_version|
+  errors << "README contains stale install pin v#{pinned_version}; current release is v#{version}." unless pinned_version == version
+end
+EXPECTED_SKILLS.each do |name|
+  errors << "README does not inventory Skill #{name}." unless readme.match?(/^\| `#{Regexp.escape(name)}` \|/)
+  pins = readme.scan(/#{Regexp.escape(name)}@v(\d+\.\d+\.\d+)/).flatten
+  errors << "README must contain one v#{version} install pin for #{name}." unless pins == [version]
+end
+
+lock_path = root.join("upstream-lock.yml")
+lock = lock_path.file? ? read_yaml.call(lock_path) : {}
+errors << "Missing upstream-lock.yml." unless lock_path.file?
+unless valid_date.call(lock["deployment_documentation_verified_on"])
+  errors << "Deployment documentation verification date is missing or invalid."
+end
+sources = lock["sources"]
+if !sources.is_a?(Hash) || sources.empty?
+  errors << "Pinned upstream source inventory is missing."
+else
+  sources.each do |name, source|
+    unless source.is_a?(Hash)
+      errors << "Pinned upstream source #{name} must be a mapping."
+      next
+    end
+
+    errors << "#{name} is missing an immutable commit." unless source.fetch("commit", "").match?(/\A[0-9a-f]{40}\z/)
+    errors << "#{name} must use an HTTPS repository URL." unless valid_https_url.call(source["repository"])
+  end
+end
+deployment_documentation = lock["deployment_documentation"]
+if !deployment_documentation.is_a?(Hash) || deployment_documentation.empty?
+  errors << "Deployment documentation inventory is missing."
+else
+  deployment_documentation.each do |name, source|
+    unless source.is_a?(Hash)
+      errors << "Deployment documentation #{name} must be a mapping."
+      next
+    end
+
+    url = source["url"].to_s
+    verified_on = source["verified_on"].to_s
+    errors << "Deployment documentation #{name} must use an HTTPS URL." unless valid_https_url.call(url)
+    errors << "Deployment documentation #{name} has an invalid verification date." unless valid_date.call(verified_on)
+  end
+end
+
+development_skill = skills.fetch("develop-hotwire-native")
+licenses = development_skill.join("assets/templates/bridge-form/LICENSES.md")
 errors << "Adapted bridge templates are missing their accompanying license notices." unless licenses.file?
 {
   "form_controller.js" => "Copyright (c) 2025 Joseph Masilotti",
   "FormComponent.swift" => "Copyright (c) 2024 Hotwire",
   "FormComponent.kt" => "Copyright (c) 2024 37signals LLC"
 }.each do |filename, notice|
-  errors << "#{filename} is missing its upstream copyright header." unless skill.join("assets/templates/bridge-form", filename).read.include?(notice)
-  errors << "LICENSES.md is missing the notice for #{filename}." unless licenses.read.include?(notice)
+  template = development_skill.join("assets/templates/bridge-form", filename)
+  errors << "Missing bridge template #{filename}." unless template.file?
+  errors << "#{filename} is missing its upstream copyright header." if template.file? && !template.read.include?(notice)
+  errors << "LICENSES.md is missing the notice for #{filename}." if licenses.file? && !licenses.read.include?(notice)
 end
 
-Dir.glob(skill.join("assets/templates/path-configuration/*.json")).each do |path|
-  JSON.parse(File.read(path))
+development_skill.join("assets/templates/path-configuration").glob("*.json").each do |path|
+  read_json.call(path)
 end
 
-Dir.glob(root.join("**/*.md"), File::FNM_DOTMATCH).each do |path|
-  relative = Pathname.new(path).relative_path_from(root)
+repository_files.select { |path| File.extname(path) == ".md" }.each do |path|
+  rel = relative.call(path)
   File.read(path).scan(/\[[^\]]*\]\(([^)]+)\)/).flatten.each do |target|
     next if target.match?(%r{\A(?:https?://|mailto:|#)})
 
     destination = target.split("#", 2).first
     resolved = Pathname.new(path).dirname.join(destination).cleanpath
-    errors << "#{relative}: missing link target #{target.inspect}." unless resolved.exist?
+    errors << "#{rel}: missing link target #{target.inspect}." unless resolved.exist?
   end
 end
 
-Dir.glob(skill.join("scripts/*.rb")).each do |path|
-  errors << "#{Pathname.new(path).relative_path_from(root)} is not executable." unless File.executable?(path)
-end
+skills.each_value do |skill|
+  skill.join("scripts").glob("*").each do |path|
+    next unless path.file?
 
-Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }.each do |path|
-  next if path.include?("/.git/")
-
-  content = File.binread(path)
-  next unless content.valid_encoding?
-
-  private_home_prefix = "/" + "Users/"
-  errors << "#{Pathname.new(path).relative_path_from(root)} contains a private absolute path." if content.include?(private_home_prefix)
+    errors << "#{relative.call(path)} is not executable." unless path.executable?
+  end
 end
 
 abort errors.join("\n") unless errors.empty?
 
-puts "Release structure verified for #{manifest.fetch('name')} #{version}."
+puts "Release structure verified for #{manifest.fetch("name")} #{version} (#{EXPECTED_SKILLS.join(", ")})."

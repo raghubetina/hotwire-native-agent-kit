@@ -1,7 +1,6 @@
 ---
 name: develop-hotwire-native
-description: Audit, build, upgrade, and debug Hotwire Native iOS and Android clients for existing Rails applications. Use for assessing Rails readiness, discovering locked Rails/Turbo/Hotwire versions, scaffolding or modifying Hotwire Native 1.x shells, implementing navigation, path configuration, push notifications, signing, or distribution, creating or reviewing three-sided Bridge Components, migrating 1.2-era code to 1.3, or diagnosing cross-platform contract and lifecycle failures.
-license: MIT
+description: Audit, build, upgrade, and debug Hotwire Native iOS and Android clients for existing Rails applications. Use for assessing Rails readiness, discovering locked Rails/Turbo/Hotwire versions, scaffolding or modifying Hotwire Native 1.x shells, implementing navigation, path configuration, push notifications, or three-sided Bridge Components, migrating 1.2-era code to 1.3, and diagnosing cross-platform contract or lifecycle failures. Use a separate deployment skill for Apple signing, provisioning, TestFlight, or App Store distribution.
 ---
 
 # Develop Hotwire Native
@@ -53,8 +52,12 @@ Treat Rails as the product and the native projects as progressively enhanced cli
 | Path rules, bundled/remote loading, cross-platform drift | [path-configuration.md](references/path-configuration.md) |
 | Bridge design, lifecycle, registration, payloads | [bridge-components.md](references/bridge-components.md) |
 | Push permission, token registration, APNs/FCM delivery | [push-notifications.md](references/push-notifications.md) |
-| App-owned signing, managed-preview handoff, TestFlight/App Store distribution | [distribution-and-signing.md](references/distribution-and-signing.md) |
-| Tests, diagnostics, optional Xcode agent tools, security, definition of done | [testing-and-diagnostics.md](references/testing-and-diagnostics.md) |
+| Tests, diagnostics, security, definition of done | [testing-and-diagnostics.md](references/testing-and-diagnostics.md) |
+
+iOS signing, provisioning, environment lanes, TestFlight, and App Store work belong to the sibling
+`deploy-hotwire-native-ios` Skill. Keep this Skill focused on product behavior and the cross-platform application
+contract. If the sibling is not installed, report that handoff instead of improvising Apple-account or release
+operations.
 
 ## Use deterministic checks
 
