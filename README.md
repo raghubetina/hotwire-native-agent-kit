@@ -22,11 +22,11 @@ You need:
 - Ruby to run the bundled audits and validators; and
 - access to Xcode on a Mac or the Android toolchain when the requested work needs that platform to compile; a hosted runner is fine.
 
-From the Rails repository, install the reviewed `v0.2.2` release at project scope:
+From the Rails repository, install the reviewed `v0.2.3` release at project scope:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
-  develop-hotwire-native@v0.2.2 \
+  develop-hotwire-native@v0.2.3 \
   --agent codex \
   --scope project
 ```
@@ -75,7 +75,7 @@ gh skill update develop-hotwire-native
 
 Pinned installations are intentionally skipped by `gh skill update`. Review a newer release and reinstall it with an explicit tag when you want to move the pin.
 
-Version `0.2.2` is published as a portable Agent Skill. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
+Version `0.2.3` is published as a portable Agent Skill. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
 
 ## Scope and limits
 
@@ -87,7 +87,7 @@ Version `0.2.2` is published as a portable Agent Skill. The included Codex plugi
 
 ## Verified baseline
 
-The `v0.2.2` guidance and fixtures were verified on July 13, 2026 against:
+The `v0.2.3` guidance and fixtures were verified on July 14, 2026 against:
 
 - Hotwire Native iOS 1.3.0
 - Hotwire Native Android 1.3.0

@@ -32,6 +32,25 @@ Test the contract at the cheapest layer that can prove it, then smoke-test the n
 
 Hotwire Native Dev Tools can inspect bridge traffic, console logs, native stack, path properties, and cookies inside the app. Treat cookie inspection as sensitive and development-only. Prefer structured log/export tooling over screenshots when an AI agent needs to analyze repeated runs.
 
+### Optional Xcode agent access
+
+Use repository scripts and command-line checks for routine Hotwire Native work. When substantial native UI or
+an unresolved native-only failure requires previews, device interaction, accessibility inspection, or LLDB
+debugging, check whether the agent is running on macOS with full Xcode installed:
+
+```sh
+xcrun --find mcpbridge
+```
+
+If Apple's `mcpbridge` is available, the host agent supports MCP, and the user can open the project in Xcode and
+approve external-agent access, offer the Xcode MCP as an optional higher-fidelity debugging surface. Use it for
+native screens, difficult Bridge lifecycle failures, and simulator- or device-only behavior. Keep the repository's
+normal build and test commands authoritative; do not make `mcpbridge` a generated-app dependency, a `bin/ios`
+requirement, or a CI prerequisite.
+
+Follow Apple's current setup guidance rather than hard-coding one agent host's configuration:
+[Giving external agents access to Xcode](https://developer.apple.com/documentation/xcode/giving-external-agents-access-to-xcode).
+
 Capture for failures:
 
 - requested and final URL;

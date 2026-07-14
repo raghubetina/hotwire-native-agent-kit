@@ -55,7 +55,7 @@ Treat Rails as the product and the native projects as progressively enhanced cli
 | Bridge design, lifecycle, registration, payloads | [bridge-components.md](references/bridge-components.md) |
 | Push permission, token registration, APNs/FCM delivery | [push-notifications.md](references/push-notifications.md) |
 | App-owned signing, managed-preview handoff, TestFlight/App Store distribution | [distribution-and-signing.md](references/distribution-and-signing.md) |
-| Tests, diagnostics, security, definition of done | [testing-and-diagnostics.md](references/testing-and-diagnostics.md) |
+| Tests, diagnostics, optional Xcode agent tools, security, definition of done | [testing-and-diagnostics.md](references/testing-and-diagnostics.md) |
 
 ## Use deterministic checks
 

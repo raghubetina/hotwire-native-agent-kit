@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 - 2026-07-14
+
+- Treat Apple's Xcode MCP as an optional high-fidelity debugging surface for native-heavy work on a Mac, while
+  keeping repository scripts authoritative and leaving generated apps and CI independent of `mcpbridge`.
+
 ## 0.2.2 - 2026-07-13
 
 - Narrow managed-preview guidance to the generated app's artifact, capability, ownership, and expiration
