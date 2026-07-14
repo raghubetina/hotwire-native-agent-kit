@@ -11,7 +11,7 @@ The repository separates two jobs that are often mixed together:
 
 Both Skills are for people who own the ordinary Rails and native source. They are not a standalone app generator or a managed build/signing service. A provider that offers managed TestFlight previews must keep its credential custody, artifact admission, signing policy, uploads, and tester administration in its own private control plane.
 
-The reviewed `v0.0.2` release contains both Skills. Install them independently so each target repository receives only the guidance it needs.
+The reviewed `v0.0.3` release contains both Skills. Install them independently so each target repository receives only the guidance it needs.
 
 ## Quick start: application development
 
@@ -26,7 +26,8 @@ From the Rails repository, install the reviewed release at project scope:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
-  develop-hotwire-native@v0.0.2 \
+  develop-hotwire-native \
+  --pin v0.0.3 \
   --agent codex \
   --scope project
 ```
@@ -43,7 +44,8 @@ Install the deployment Skill independently in the application repository:
 
 ```sh
 gh skill install raghubetina/hotwire-native-agent-kit \
-  deploy-hotwire-native-ios@v0.0.2 \
+  deploy-hotwire-native-ios \
+  --pin v0.0.3 \
   --agent codex \
   --scope project
 ```
@@ -59,7 +61,10 @@ is installed, its agent should report the missing handoff rather than absorbing 
 
 ## Installation choices
 
-The pinned, project-scoped command is recommended for a first trial because it keeps the installation inside the target repository. Commit installed Skill files when everyone working in that repository should share the same reviewed version.
+The pinned, project-scoped command is recommended for a first trial because it keeps the installation inside the
+target repository. Commit installed Skill files when everyone working in that repository should share the same
+reviewed version. Use the explicit `--pin` flag. In GitHub CLI 2.95 and 2.96, `skill@version` checks out that
+version but is still reported as unpinned and can advance during `gh skill update`.
 
 To follow the latest published release instead of pinning a version:
 
@@ -79,23 +84,106 @@ gh skill install raghubetina/hotwire-native-agent-kit \
   --scope user
 ```
 
+## Upgrading
+
+The two Skill trees in `v0.0.3` are identical to `v0.0.2`, so an existing `v0.0.2` Skill installation does not
+need to be replaced. This release corrects the kit's installation and upgrade documentation. Use the workflow below
+when a future release changes a Skill tree, substituting the release you reviewed.
+
+First inspect what is installed from the target repository:
+
+```sh
+gh skill list \
+  --agent codex \
+  --scope project \
+  --json skillName,sourceURL,version,pinned,path
+```
+
+Keep custom application guidance outside the installed Skill directories. An upgrade replaces those directories;
+start from a clean worktree and preserve any intentional local changes before continuing.
+
+### Upgrade an unpinned installation
+
 Preview updates without changing installed files:
 
 ```sh
-gh skill update --dry-run
+gh skill update develop-hotwire-native deploy-hotwire-native-ios \
+  --dir .agents/skills \
+  --dry-run
 ```
 
 Update an unpinned installation:
 
 ```sh
-gh skill update develop-hotwire-native
+gh skill update develop-hotwire-native deploy-hotwire-native-ios \
+  --dir .agents/skills
 ```
 
-Pinned installations are intentionally skipped by `gh skill update`. Review a newer release and reinstall it with an explicit tag when you want to move the pin.
+Name only the Skills that are installed. With GitHub CLI 2.95 and 2.96, `gh skill update` replaces the installed
+Skill tree: it overwrites local edits and removes both retired upstream files and locally added files. Inspect or
+move any customization first.
+
+### Upgrade the recommended pinned installation
+
+Pinned installations are intentionally skipped by `gh skill update`. Review the
+[changelog](CHANGELOG.md), preview the target release, then clean-replace each installed Skill. When both Skills are
+installed, move them to the same kit version. A clean replacement avoids keeping files that the newer release
+removed. The example below upgrades both committed, project-scoped Codex Skills to `v0.0.3`; omit a Skill's preview,
+remove, install, and test commands when that Skill is not installed. If the Skill directories are not tracked by
+Git, preserve any intentional customization elsewhere and remove only those exact directories before installing
+their replacements.
+
+```sh
+gh skill preview raghubetina/hotwire-native-agent-kit \
+  develop-hotwire-native@v0.0.3
+
+gh skill preview raghubetina/hotwire-native-agent-kit \
+  deploy-hotwire-native-ios@v0.0.3
+
+git status --short
+
+git rm -r .agents/skills/develop-hotwire-native
+git rm -r .agents/skills/deploy-hotwire-native-ios
+
+gh skill install raghubetina/hotwire-native-agent-kit \
+  develop-hotwire-native \
+  --pin v0.0.3 \
+  --agent codex \
+  --scope project
+
+gh skill install raghubetina/hotwire-native-agent-kit \
+  deploy-hotwire-native-ios \
+  --pin v0.0.3 \
+  --agent codex \
+  --scope project
+
+ruby .agents/skills/develop-hotwire-native/scripts/test.rb
+ruby .agents/skills/develop-hotwire-native/scripts/test_validate_path_config.rb
+ruby .agents/skills/deploy-hotwire-native-ios/scripts/test.rb
+
+git add -A .agents/skills
+git diff --cached -- .agents/skills
+git commit -m "Update Hotwire Native Agent Kit to v0.0.3"
+```
+
+Do not substitute `gh skill install --force` for the removal step: in GitHub CLI 2.95 and 2.96, a forced install
+overwrites known Skill files but preserves extra files inside the directory. Keeping both Skills on one release
+prevents product-development and deployment guidance from drifting apart.
+
+To stop pinning and follow the latest published release instead, let `gh skill` replace the installed trees and
+remove their pinned metadata:
+
+```sh
+gh skill update develop-hotwire-native deploy-hotwire-native-ios \
+  --dir .agents/skills \
+  --unpin
+```
+
+Run `gh skill list` again after either path to verify the installed version and `pinned` state.
 
 The core Skills follow the open Agent Skills layout and remain agent-agnostic. Change `--agent` to another host supported by `gh skill`; run `gh skill install --help` for the current list.
 
-Version `0.0.2` is published as portable Agent Skills. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
+Version `0.0.3` is published as portable Agent Skills. The included Codex plugin manifest is prepared for future native marketplace distribution but is not yet a marketplace listing; use `gh skill` for installation today.
 
 ## Scope and limits
 
@@ -115,7 +203,7 @@ Version `0.0.2` is published as portable Agent Skills. The included Codex plugin
 
 ## Verified baseline
 
-The `v0.0.2` development guidance and fixtures were verified on July 14, 2026 against:
+The `v0.0.3` development guidance and fixtures were verified on July 14, 2026 against:
 
 - Hotwire Native iOS 1.3.0
 - Hotwire Native Android 1.3.0

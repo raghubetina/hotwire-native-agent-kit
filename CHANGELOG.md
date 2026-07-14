@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.3 - 2026-07-14
+
+- Document safe upgrades for pinned and unpinned installations.
+- Use the explicit `--pin` flag so project-scoped installs are reported and treated as pinned by GitHub CLI 2.95
+  and 2.96.
+- Document clean replacement for pinned upgrades so removed or renamed Skill files cannot linger.
+- Keep `develop-hotwire-native` and `deploy-hotwire-native-ios` on one reviewed release and verify their bundled
+  tests after upgrading.
+- Leave both Skill trees unchanged from `v0.0.2`; this release improves repository-level installation, upgrade,
+  and release verification guidance.
+
 ## 0.0.2 - 2026-07-14
 
 - Add the public `deploy-hotwire-native-ios` Skill for owner-controlled environment lanes, direct-device builds,
