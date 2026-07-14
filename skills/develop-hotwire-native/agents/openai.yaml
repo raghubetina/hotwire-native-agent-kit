@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop Hotwire Native"
+  short_description: "Build, push, sign, and verify Rails-powered native apps"
+  default_prompt: "Use $develop-hotwire-native to audit this Rails app and implement the next verified web, iOS, Android, push, or distribution slice."

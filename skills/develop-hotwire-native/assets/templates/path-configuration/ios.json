@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "schema_version": 1
+  },
+  "rules": [
+    {
+      "patterns": [".*"],
+      "properties": {
+        "context": "default",
+        "pull_to_refresh_enabled": true
+      }
+    },
+    {
+      "patterns": ["/new$", "/edit$"],
+      "properties": {
+        "context": "modal",
+        "modal_style": "large",
+        "pull_to_refresh_enabled": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test Skill scripts
+        run: ruby skills/develop-hotwire-native/scripts/test.rb
+      - name: Test live and streaming path configurations
+        run: ruby skills/develop-hotwire-native/scripts/test_validate_path_config.rb
+      - name: Verify release structure
+        run: ruby script/verify
+      - name: Parse bundled JSON
+        run: >-
+          ruby -rjson -e 'ARGV.each { |path| JSON.parse(File.read(path)) }'
+          skills/develop-hotwire-native/assets/templates/path-configuration/ios.json
+          skills/develop-hotwire-native/assets/templates/path-configuration/android.json
+          .codex-plugin/plugin.json
+      - name: Check bundled JavaScript
+        run: node --check skills/develop-hotwire-native/assets/templates/bridge-form/form_controller.js

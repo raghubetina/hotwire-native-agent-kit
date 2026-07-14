@@ -1,0 +1,27 @@
+{
+  "name": "hotwire-native-agent-kit",
+  "version": "0.0.1",
+  "description": "Audit, build, upgrade, push, sign, and debug Rails-powered Hotwire Native apps.",
+  "author": {
+    "name": "Raghu Betina",
+    "url": "https://github.com/raghubetina"
+  },
+  "homepage": "https://github.com/raghubetina/hotwire-native-agent-kit",
+  "repository": "https://github.com/raghubetina/hotwire-native-agent-kit",
+  "license": "MIT",
+  "keywords": ["hotwire-native", "rails", "ios", "android", "turbo"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Hotwire Native Agent Kit (Unofficial)",
+    "shortDescription": "Develop verified Rails-powered native apps",
+    "longDescription": "Audit Rails applications, implement Hotwire Native iOS and Android clients, validate navigation, Bridge Components, push, signing, and distribution, and diagnose version or lifecycle failures.",
+    "developerName": "Raghu Betina",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Audit this Rails app for Hotwire Native readiness.",
+      "Build the next verified iOS, Android, or push slice.",
+      "Diagnose this Hotwire Native bridge failure."
+    ]
+  }
+}
