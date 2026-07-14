@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add the public `deploy-hotwire-native-ios` Skill for owner-controlled environment lanes, direct-device builds,
+  signing, provisioning, signed-artifact verification, CI, TestFlight, and App Store handoff.
+- Narrow `develop-hotwire-native` to product-facing Rails/iOS/Android implementation and runtime behavior.
+- Keep managed-signing provider control-plane operations outside both public Skills.
+
 ## 0.2.2 - 2026-07-13
 
 - Narrow managed-preview guidance to the generated app's artifact, capability, ownership, and expiration

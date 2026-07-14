@@ -1,6 +1,6 @@
 # Repository guidance
 
-Maintain this repository as a public, agent-agnostic source for the `develop-hotwire-native` Skill.
+Maintain this repository as a public, agent-agnostic source for complementary Hotwire Native Skills.
 
 ## Boundaries
 
@@ -12,8 +12,10 @@ Maintain this repository as a public, agent-agnostic source for the `develop-hot
 
 ## Structure
 
-- Treat `skills/develop-hotwire-native/` as the canonical Skill tree.
-- Keep detailed guidance in its focused `references/` files and the main `SKILL.md` as a concise router.
+- Treat every directory under `skills/` as an independently installable canonical Skill tree.
+- Keep product implementation in `develop-hotwire-native` and owner-operated iOS build/sign/distribution in
+  `deploy-hotwire-native-ios`. Provider control-plane operations belong in that provider's private repository.
+- Keep detailed guidance in focused `references/` files and each `SKILL.md` as a concise router.
 - Keep deterministic checks in `scripts/` and output templates in `assets/`.
 - Keep `.codex-plugin/plugin.json` limited to Codex packaging metadata. Add other host wrappers without forking the core Skill.
 
@@ -30,11 +32,13 @@ gh skill publish --dry-run
 
 When Codex's `skill-creator` and `plugin-creator` system Skills are available, also run their `quick_validate.py` and `validate_plugin.py` scripts against the Skill and repository respectively.
 
+Run `quick_validate.py` against every directory under `skills/`, not only the Skill changed in the current branch.
+
 Also run the target Rails, Xcode, and Gradle checks when changing version-sensitive templates or guidance. If a platform cannot be exercised, document the missing check in the release notes.
 
 ## Releases
 
 - Use semantic versions beginning at `0.1.0`.
 - Keep the Git tag, `.codex-plugin/plugin.json`, `CHANGELOG.md`, and any future host manifests on the same version.
-- Treat a newly verified Hotwire Native release as at least a minor release of this kit.
+- Treat a newly verified Hotwire Native release or a newly published Skill as at least a minor release of this kit.
 - Inspect every upstream change before incorporating it; do not automatically rewrite guidance from release feeds.

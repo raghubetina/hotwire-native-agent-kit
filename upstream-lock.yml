@@ -1,4 +1,5 @@
 verified_on: "2026-07-12"
+deployment_documentation_verified_on: "2026-07-14"
 sources:
   hotwire_native_ios:
     repository: "https://github.com/hotwired/hotwire-native-ios"

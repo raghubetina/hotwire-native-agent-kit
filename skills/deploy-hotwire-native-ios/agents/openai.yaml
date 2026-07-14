@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy Hotwire Native iOS"
+  short_description: "Build, sign, verify, and ship owned iOS apps"
+  default_prompt: "Use $deploy-hotwire-native-ios to audit this app’s iOS deployment path and prepare the next verified device or TestFlight release."

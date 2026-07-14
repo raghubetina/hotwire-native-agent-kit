@@ -50,4 +50,4 @@ A change is done only when:
 - deterministic validators pass;
 - Rails and available native builds/tests pass;
 - fallback behavior required by an evidenced deployed-client contract is preserved;
-- device-only, signing, entitlement, privacy, and store-review checks are explicitly listed when not run.
+- device-only and privacy checks are explicitly listed when not run.
