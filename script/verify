@@ -283,13 +283,16 @@ readme_path = root.join("README.md")
 readme = readme_path.file? ? readme_path.read : ""
 errors << "Missing README.md." unless readme_path.file?
 errors << "README reviewed-release declaration does not match v#{version}." unless readme.include?("reviewed `v#{version}` release")
-readme.scan(/@v(\d+\.\d+\.\d+)/).flatten.uniq.each do |pinned_version|
-  errors << "README contains stale install pin v#{pinned_version}; current release is v#{version}." unless pinned_version == version
+readme.scan(/(?:--pin\s+v|@v)(\d+\.\d+\.\d+)/).flatten.uniq.each do |pinned_version|
+  errors << "README contains stale release reference v#{pinned_version}; current release is v#{version}." unless pinned_version == version
 end
 EXPECTED_SKILLS.each do |name|
   errors << "README does not inventory Skill #{name}." unless readme.match?(/^\| `#{Regexp.escape(name)}` \|/)
-  pins = readme.scan(/#{Regexp.escape(name)}@v(\d+\.\d+\.\d+)/).flatten
-  errors << "README must contain one v#{version} install pin for #{name}." unless pins == [version]
+  explicit_pin_pattern = /gh skill install raghubetina\/hotwire-native-agent-kit \\\n\s+#{Regexp.escape(name)} \\\n\s+--pin v(\d+\.\d+\.\d+)/
+  pins = readme.scan(explicit_pin_pattern).flatten
+  errors << "README must install #{name} with explicit --pin v#{version}." if pins.empty? || pins.any? { |pin| pin != version }
+  implicit_install_pattern = /gh skill install raghubetina\/hotwire-native-agent-kit \\\n\s+#{Regexp.escape(name)}@v\d+\.\d+\.\d+/
+  errors << "README must not use name@version as a substitute for --pin for #{name}." if readme.match?(implicit_install_pattern)
 end
 
 lock_path = root.join("upstream-lock.yml")

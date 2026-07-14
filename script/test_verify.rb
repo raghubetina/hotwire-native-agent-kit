@@ -71,10 +71,21 @@ with_repository do |root|
   manifest = JSON.parse(root.join(".codex-plugin/plugin.json").read)
   version = manifest.fetch("version")
   readme = root.join("README.md").read
-  root.join("README.md").write(readme.sub("develop-hotwire-native@v#{version}", "develop-hotwire-native@v9.9.9"))
+  root.join("README.md").write(readme.sub("--pin v#{version}", "--pin v9.9.9"))
   success, output = run_verifier(root)
   failures << "expected a stale README install pin to fail" if success
-  failures << "stale install pin did not identify the release mismatch" unless output.include?("stale install pin")
+  failures << "stale install pin did not identify the release mismatch" unless output.include?("stale release reference")
+end
+
+with_repository do |root|
+  manifest = JSON.parse(root.join(".codex-plugin/plugin.json").read)
+  version = manifest.fetch("version")
+  readme = root.join("README.md").read
+  explicit = "develop-hotwire-native \\\n  --pin v#{version}"
+  root.join("README.md").write(readme.sub(explicit, "develop-hotwire-native@v#{version}"))
+  success, output = run_verifier(root)
+  failures << "expected name@version without --pin to fail" if success
+  failures << "implicit pin did not identify the name@version problem" unless output.include?("must not use name@version")
 end
 
 with_repository do |root|
