@@ -89,6 +89,14 @@ with_repository do |root|
 end
 
 with_repository do |root|
+  readme = root.join("README.md")
+  readme.write(readme.read.sub("GitHub CLI](https://cli.github.com/) 2.95 or newer", "GitHub CLI](https://cli.github.com/) 2.90 or newer"))
+  success, output = run_verifier(root)
+  failures << "expected an obsolete GitHub CLI minimum to fail" if success
+  failures << "obsolete GitHub CLI minimum did not identify the required version" unless output.include?("GitHub CLI 2.95 or newer")
+end
+
+with_repository do |root|
   workflow = root.join(".github/workflows/ci.yml")
   workflow.write(workflow.read.sub("runs-on: macos-15", "runs-on: ubuntu-24.04"))
   success, output = run_verifier(root)

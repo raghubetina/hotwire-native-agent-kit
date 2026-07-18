@@ -23,6 +23,10 @@ Test the contract at the cheapest layer that can prove it, then smoke-test the n
 - Test modal-to-modal, modal-to-default, tab reselection, cold deep link, and warm deep link.
 - Keep every app and test target on the intended deployment floor; a missing test-target setting can silently
   inherit a newer default and make local and CI results diverge.
+- Unit-test the baked iOS application root, accepted Debug environment/argument overrides, their precedence, and
+  every rejected form: insecure non-loopback HTTP, credentials, a non-root path, query, fragment, and an empty or
+  malformed value. Prove Release ignores both override sources and that authentication and remote-configuration URLs
+  derive from the selected root.
 - On GitHub-hosted macOS runners, run `xcrun simctl list` before `xcodebuild` so CoreSimulator recaches the
   preinstalled runtimes and devices. If Xcode still reports only generic placeholder destinations, capture the
   image version and available runtimes/devices and retry a fresh runner before downloading another platform.

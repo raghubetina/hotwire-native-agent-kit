@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.0.4 - 2026-07-18
+
+- Extend `develop-hotwire-native` with a validated, per-launch, Debug-only Rails-origin contract and its required
+  native tests.
+- Extend `deploy-hotwire-native-ios` with a provider-neutral hosted-Simulator lane built from the canonical Xcode
+  project on credential-free GitHub-hosted macOS.
+- Define a short-lived universal unsigned `.app.zip` artifact and source-owned `bin/ios simulator-artifact` entry
+  point while keeping build outputs uncommitted and provider credentials and control-plane policy outside the
+  application build contract.
+- Inspect zipped Simulator apps safely and fail closed on signing, platform, source, digest, or architecture drift
+  in the main app or any embedded executable, framework, XPC service, or dynamic library.
+- Require GitHub CLI 2.95 or newer for the documented installed-Skill inventory and atomic replacement workflow.
+- Preserve owner-controlled signing, TestFlight, and App Store distribution as separate higher proof levels.
+- Route deployment advice through the current executor and the trusted application's actual `bin/ios` surface;
+  keep optional hosted-preview providers explicit as `preview <provider>` namespaces.
+
 ## 0.0.3 - 2026-07-14
 
 - Document safe upgrades for pinned and unpinned installations.

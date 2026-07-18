@@ -21,6 +21,7 @@ EXPECTED_REFERENCES = {
     ci-and-testflight.md
     direct-device.md
     project-and-environments.md
+    simulator-preview.md
     signing-and-capabilities.md
     support-status.md
     troubleshooting.md
@@ -52,6 +53,7 @@ EXPECTED_SCRIPT_PATHS = {
   ]
 }.freeze
 VERSION_PATTERN = /\A\d+\.\d+\.\d+\z/
+MINIMUM_GITHUB_CLI_VERSION = "2.95"
 CONFLICT_MARKER_PATTERN = /^(?:<{7}(?: .*)?|={7}|>{7}(?: .*)?)$/
 PROHIBITED_SECRET_FILENAMES = /(?:\.cer|\.key|\.mobileprovision|\.p12|\.p8|\.pfx|\.provisionprofile)\z/i
 
@@ -282,6 +284,9 @@ end
 readme_path = root.join("README.md")
 readme = readme_path.file? ? readme_path.read : ""
 errors << "Missing README.md." unless readme_path.file?
+unless readme.include?("[GitHub CLI](https://cli.github.com/) #{MINIMUM_GITHUB_CLI_VERSION} or newer")
+  errors << "README must require GitHub CLI #{MINIMUM_GITHUB_CLI_VERSION} or newer for its documented Skill workflow."
+end
 errors << "README reviewed-release declaration does not match v#{version}." unless readme.include?("reviewed `v#{version}` release")
 readme.scan(/(?:--pin\s+v|@v)(\d+\.\d+\.\d+)/).flatten.uniq.each do |pinned_version|
   errors << "README contains stale release reference v#{pinned_version}; current release is v#{version}." unless pinned_version == version

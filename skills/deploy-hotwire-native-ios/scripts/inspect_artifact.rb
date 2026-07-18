@@ -12,15 +12,26 @@ options = {
   json: false,
   allow_unsigned: false,
   expect_clean_source: false,
+  architectures: [],
   associated_domains: [],
   nested_bundle_ids: [],
   max_extracted_bytes: 4 * 1024 * 1024 * 1024
 }
 
 parser = OptionParser.new do |arguments|
-  arguments.banner = "Usage: inspect_artifact.rb [options] APP.app|APP.ipa|APP.xcarchive"
+  arguments.banner = "Usage: inspect_artifact.rb [options] APP.app|APP.app.zip|APP.ipa|APP.xcarchive"
   arguments.on("--json", "Emit machine-readable JSON") { options[:json] = true }
   arguments.on("--allow-unsigned", "Permit an unsigned artifact (for Simulator checks)") { options[:allow_unsigned] = true }
+  arguments.on("--expect-unsigned", "Require no Apple signing identity/profile; permit no or ad hoc signature") do
+    options[:expect_unsigned] = true
+    options[:allow_unsigned] = true
+  end
+  arguments.on("--expect-platform PLATFORM", %w[iphoneos iphonesimulator], "Require the built Apple platform") do |value|
+    options[:platform] = value
+  end
+  arguments.on("--expect-architecture ARCH", "Require an architecture in every embedded executable; repeatable") do |value|
+    options[:architectures] << value
+  end
   arguments.on("--source-root PATH", "Repository used to build the artifact") { |value| options[:source_root] = value }
   arguments.on("--expect-clean-source", "Fail if --source-root is dirty") { options[:expect_clean_source] = true }
   arguments.on("--expect-source-sha SHA", "Require both --source-root and the artifact's embedded revision to be SHA") do |value|
@@ -46,7 +57,9 @@ parser = OptionParser.new do |arguments|
   end
   arguments.on("--expect-profile-uuid UUID", "Require the embedded profile UUID") { |value| options[:profile_uuid] = value }
   arguments.on("--expect-rails-origin URL", "Require a baked application origin") { |value| options[:rails_origin] = value }
-  arguments.on("--max-extracted-bytes BYTES", Integer, "Reject larger IPA payloads") { |value| options[:max_extracted_bytes] = value }
+  arguments.on("--max-extracted-bytes BYTES", Integer, "Reject larger compressed-artifact payloads") do |value|
+    options[:max_extracted_bytes] = value
+  end
 end
 parser.parse!
 
@@ -54,6 +67,10 @@ abort "--max-extracted-bytes must be positive" unless options[:max_extracted_byt
 if options[:source_sha] && !options[:source_sha].match?(/\A[0-9a-f]{40}\z/i)
   abort "--expect-source-sha must be a full 40-character Git commit"
 end
+unless options[:architectures].all? { |value| value.match?(/\A[A-Za-z0-9_-]+\z/) }
+  abort "--expect-architecture must name one architecture"
+end
+options[:architectures].uniq!
 
 artifact_argument = ARGV.shift
 abort parser.to_s unless artifact_argument && ARGV.empty?
@@ -63,11 +80,16 @@ abort "Artifact does not exist" unless artifact.exist?
 
 def normalized_origin(value)
   uri = URI.parse(value)
-  return nil unless %w[http https].include?(uri.scheme) && uri.host
+  return nil unless %w[http https].include?(uri.scheme) && uri.host && uri.userinfo.nil?
+  return nil unless [nil, "", "/"].include?(uri.path) && uri.query.nil? && uri.fragment.nil?
 
   "#{uri.scheme}://#{uri.host}#{":#{uri.port}" unless uri.default_port == uri.port}"
 rescue URI::InvalidURIError
   nil
+end
+
+if options[:rails_origin] && !normalized_origin(options[:rails_origin])
+  abort "--expect-rails-origin must be an absolute HTTP(S) host root without credentials, path, query, or fragment"
 end
 
 def origins_in(value)
@@ -94,72 +116,122 @@ def plist_from_command_output(stdout, stderr)
   DeployIOSSupport.plist(combined[start..(finish + closing_tag.length - 1)])
 end
 
-def validate_ipa_entries!(ipa, max_extracted_bytes)
-  names, = DeployIOSSupport.capture("zipinfo", "-1", ipa)
+def validate_zip_entries!(archive, max_extracted_bytes, label:)
+  names, = DeployIOSSupport.capture("zipinfo", "-1", archive)
   entries = names.lines(chomp: true)
-  raise DeployIOSSupport::Error, "IPA contains no entries" if entries.empty?
-  raise DeployIOSSupport::Error, "IPA contains too many entries" if entries.length > 100_000
+  raise DeployIOSSupport::Error, "#{label} contains no entries" if entries.empty?
+  raise DeployIOSSupport::Error, "#{label} contains too many entries" if entries.length > 100_000
 
   entries.each do |entry|
-    raise DeployIOSSupport::Error, "IPA contains an unsafe archive path" unless entry.valid_encoding?
-    raise DeployIOSSupport::Error, "IPA contains an unsafe archive path" if entry.empty? || entry.include?("\0") || entry.include?("\\")
-    raise DeployIOSSupport::Error, "IPA contains an unsafe archive path" if entry.start_with?("/", "~") || entry.match?(/\A[A-Za-z]:/)
+    raise DeployIOSSupport::Error, "#{label} contains an unsafe archive path" unless entry.valid_encoding?
+    if entry.empty? || entry.include?("\0") || entry.include?("\\") || entry.start_with?("/", "~") || entry.match?(/\A[A-Za-z]:/)
+      raise DeployIOSSupport::Error, "#{label} contains an unsafe archive path"
+    end
 
     components = entry.split("/", -1)
-    raise DeployIOSSupport::Error, "IPA contains an unsafe archive path" if components.any? { |part| part == ".." }
+    raise DeployIOSSupport::Error, "#{label} contains an unsafe archive path" if components.any? { |part| part == ".." }
   end
 
-  long_listing, = DeployIOSSupport.capture("zipinfo", "-l", ipa)
+  long_listing, = DeployIOSSupport.capture("zipinfo", "-l", archive)
   if long_listing.lines.any? { |line| line.match?(/^l[rwxstST-]{9}\s/) }
-    raise DeployIOSSupport::Error, "IPA contains a symbolic link"
+    raise DeployIOSSupport::Error, "#{label} contains a symbolic link"
   end
 
-  totals, = DeployIOSSupport.capture("zipinfo", "-t", ipa)
+  totals, = DeployIOSSupport.capture("zipinfo", "-t", archive)
   match = totals.match(/([0-9]+) bytes uncompressed/)
-  raise DeployIOSSupport::Error, "Unable to determine the IPA's uncompressed size" unless match
+  raise DeployIOSSupport::Error, "Unable to determine the #{label.downcase}'s uncompressed size" unless match
 
   if Integer(match[1]) > max_extracted_bytes
-    raise DeployIOSSupport::Error, "IPA exceeds the extraction-size limit"
+    raise DeployIOSSupport::Error, "#{label} exceeds the extraction-size limit"
   end
 end
 
-def validate_extracted_tree!(root)
+def validate_extracted_tree!(root, label:)
   expanded_root = Pathname.new(root).realpath
   Dir.glob(expanded_root.join("**/*").to_s, File::FNM_DOTMATCH).each do |entry|
     next if [".", ".."].include?(File.basename(entry))
 
     stat = File.lstat(entry)
-    raise DeployIOSSupport::Error, "Extracted IPA contains a symbolic link" if stat.symlink?
+    raise DeployIOSSupport::Error, "Extracted #{label} contains a symbolic link" if stat.symlink?
 
     resolved_parent = Pathname.new(entry).parent.realpath
     unless resolved_parent == expanded_root || resolved_parent.to_s.start_with?(expanded_root.to_s + File::SEPARATOR)
-      raise DeployIOSSupport::Error, "Extracted IPA escaped its temporary directory"
+      raise DeployIOSSupport::Error, "Extracted #{label} escaped its temporary directory"
     end
   end
+end
+
+def path_within?(root, candidate)
+  root_path = root.realpath.to_s
+  candidate_path = candidate.realpath.to_s
+  candidate_path == root_path || candidate_path.start_with?(root_path + File::SEPARATOR)
+rescue Errno::ENOENT, Errno::EACCES, Errno::ELOOP
+  false
+end
+
+def symlinked_path_component?(root, candidate)
+  current = root
+  return true if current.symlink?
+
+  candidate.relative_path_from(root).each_filename.any? do |component|
+    return true if component == ".."
+
+    current = current.join(component)
+    current.symlink?
+  end
+rescue ArgumentError
+  true
 end
 
 def with_application(artifact, max_extracted_bytes)
   case artifact.extname.downcase
   when ".app"
     raise DeployIOSSupport::Error, "The .app artifact is not a directory" unless artifact.directory?
+    raise DeployIOSSupport::Error, "The .app artifact must not be a symbolic link" if artifact.symlink?
+    validate_extracted_tree!(artifact, label: "application")
     yield artifact, "app"
   when ".xcarchive"
     raise DeployIOSSupport::Error, "The .xcarchive artifact is not a directory" unless artifact.directory?
+    raise DeployIOSSupport::Error, "The .xcarchive artifact must not be a symbolic link" if artifact.symlink?
     applications = Dir.glob(artifact.join("Products/Applications/*.app").to_s).select { |path| File.directory?(path) }
     raise DeployIOSSupport::Error, "Expected exactly one application in the xcarchive" unless applications.length == 1
-    yield Pathname.new(applications.first), "xcarchive"
+    application = Pathname.new(applications.first)
+    if symlinked_path_component?(artifact, application) || !path_within?(artifact, application)
+      raise DeployIOSSupport::Error, "The archived application must remain inside the xcarchive without symbolic links"
+    end
+    validate_extracted_tree!(application, label: "archived application")
+    yield application, "xcarchive"
   when ".ipa"
     raise DeployIOSSupport::Error, "The .ipa artifact is not a file" unless artifact.file?
-    validate_ipa_entries!(artifact, max_extracted_bytes)
+    validate_zip_entries!(artifact, max_extracted_bytes, label: "IPA")
     Dir.mktmpdir("deploy-ios-ipa") do |tmp|
       DeployIOSSupport.capture("ditto", "-x", "-k", artifact, tmp)
-      validate_extracted_tree!(tmp)
+      validate_extracted_tree!(tmp, label: "IPA")
       applications = Dir.glob(File.join(tmp, "Payload", "*.app")).select { |path| File.directory?(path) }
       raise DeployIOSSupport::Error, "Expected exactly one application in the IPA" unless applications.length == 1
       yield Pathname.new(applications.first), "ipa"
     end
+  when ".zip"
+    unless artifact.file? && artifact.basename.to_s.downcase.end_with?(".app.zip")
+      raise DeployIOSSupport::Error, "Expected a file named APP.app.zip"
+    end
+
+    validate_zip_entries!(artifact, max_extracted_bytes, label: "Simulator app archive")
+    Dir.mktmpdir("deploy-ios-app-zip") do |tmp|
+      DeployIOSSupport.capture("ditto", "-x", "-k", artifact, tmp)
+      validate_extracted_tree!(tmp, label: "Simulator app archive")
+      payload_entries = Dir.children(tmp).reject { |name| name == "__MACOSX" }
+      applications = payload_entries.each_with_object([]) do |name, matches|
+        path = File.join(tmp, name)
+        matches << path if name.end_with?(".app") && File.directory?(path)
+      end
+      unless payload_entries.length == 1 && applications.length == 1
+        raise DeployIOSSupport::Error, "Expected only one top-level application in the Simulator app archive"
+      end
+      yield Pathname.new(applications.first), "app-zip"
+    end
   else
-    raise DeployIOSSupport::Error, "Expected a .app, .ipa, or .xcarchive artifact"
+    raise DeployIOSSupport::Error, "Expected a .app, .app.zip, .ipa, or .xcarchive artifact"
   end
 end
 
@@ -231,13 +303,18 @@ def profile_channel(profile)
   "unknown"
 end
 
-def inspect_signable(bundle, label, allow_unsigned:)
+def inspect_signable(bundle, label, allow_unsigned:, require_bundle_identifier: true)
   info = bundle_info(bundle)
   stdout, stderr, status = DeployIOSSupport.capture("codesign", "--display", "--verbose=4", bundle, allow_failure: true)
   signed = status.success?
   signature_text = "#{stdout}\n#{stderr}"
+  linker_signed = signature_text.match?(
+    /^CodeDirectory\b[^\r\n]*\bflags=[^\r\n]*\([^\r\n)]*\blinker-signed\b[^\r\n)]*\)/i
+  )
   signature = {
     "signed" => signed,
+    "kind" => signature_text[/^Signature=(.+)$/i, 1]&.strip,
+    "linker_signed" => linker_signed || nil,
     "identifier" => signature_text[/^Identifier=(.+)$/i, 1]&.strip,
     "team_identifier" => signature_text[/^TeamIdentifier=(.+)$/i, 1]&.strip,
     "cdhash" => signature_text[/^CDHash=(.+)$/i, 1]&.strip,
@@ -285,20 +362,24 @@ def inspect_signable(bundle, label, allow_unsigned:)
       end
     end
 
-    _, _, verification_status = DeployIOSSupport.capture(
-      "codesign", "--verify", "--strict", bundle,
-      allow_failure: true
-    )
-    checks << DeployIOSSupport.check("#{label}: code signature verifies", true, verification_status.success?) unless allow_unsigned
+    unless signature["linker_signed"]
+      _, _, verification_status = DeployIOSSupport.capture(
+        "codesign", "--verify", "--strict", bundle,
+        allow_failure: true
+      )
+      checks << DeployIOSSupport.check("#{label}: code signature verifies", true, verification_status.success?)
+    end
   end
 
   checks << DeployIOSSupport.check("#{label}: bundle is signed", true, signed) unless allow_unsigned
   bundle_id = info["CFBundleIdentifier"]
-  checks << DeployIOSSupport.check(
-    "#{label}: bundle identifier is present",
-    true,
-    bundle_id.is_a?(String) && bundle_id.match?(/\A[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\z/)
-  )
+  if require_bundle_identifier
+    checks << DeployIOSSupport.check(
+      "#{label}: bundle identifier is present",
+      true,
+      bundle_id.is_a?(String) && bundle_id.match?(/\A[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\z/)
+    )
+  end
   if !allow_unsigned && signed && signature["identifier"] && bundle_id
     checks << DeployIOSSupport.check("#{label}: bundle identifier matches the signature", bundle_id, signature["identifier"])
   end
@@ -385,10 +466,67 @@ def nested_signables(application)
   patterns = %w[**/*.appex **/*.app **/*.framework **/*.xpc]
   patterns.flat_map { |pattern| Dir.glob(application.join(pattern).to_s) }
     .map { |path| Pathname.new(path) }
-    .select(&:directory?)
+    .select { |path| path.directory? && !path.symlink? && path_within?(application, path) }
     .reject { |path| path == application }
     .uniq
     .sort_by(&:to_s)
+end
+
+def standalone_dylibs(application)
+  Dir.glob(application.join("**/*.dylib").to_s).sort
+    .map { |path| Pathname.new(path) }
+    .select { |path| safe_binary_file?(application, path) }
+end
+
+def safe_bundle_executable_path(bundle, info)
+  executable = info["CFBundleExecutable"]
+  return nil unless executable.is_a?(String) && !executable.empty?
+  return nil if executable.include?("\0") || executable.include?("\\")
+  return nil unless executable == File.basename(executable) && !%w[. ..].include?(executable)
+
+  bundle.join(executable).cleanpath
+end
+
+def safe_binary_file?(application, path)
+  path && !path.symlink? && path_within?(application, path) && path.file?
+end
+
+def binary_candidates(application, info, nested_bundles, dylibs)
+  candidates = [["main application", safe_bundle_executable_path(application, info)]]
+  nested_bundles.each do |bundle|
+    relative = bundle.relative_path_from(application).to_s
+    executable = safe_bundle_executable_path(bundle, bundle_info(bundle))
+    candidates << ["nested #{relative}", executable]
+  end
+  dylibs.each do |candidate|
+    candidates << ["embedded #{candidate.relative_path_from(application)}", candidate]
+  end
+  candidates.uniq { |label, path| path ? path.to_s : label }
+end
+
+def inspect_binaries(application, candidates)
+  candidates.each_with_object([]) do |(label, path), binaries|
+    next unless safe_binary_file?(application, path)
+
+    stdout, _, status = DeployIOSSupport.capture("lipo", "-archs", path, allow_failure: true)
+    next unless status.success?
+
+    binaries << {
+      "label" => label,
+      "path" => path.relative_path_from(application).to_s,
+      "sha256" => Digest::SHA256.file(path).hexdigest,
+      "architectures" => stdout.split.uniq.sort
+    }
+  end
+end
+
+def credential_free_signable?(signable)
+  signature = signable.fetch("signature")
+  signed_team = signable.fetch("signed_entitlements")["team_identifier"] || signature["team_identifier"]
+  team_absent = signed_team.nil? || signed_team.empty? || signed_team.to_s.downcase == "not set"
+
+  !signature.fetch("signed") ||
+    (signature["kind"].to_s.downcase == "adhoc" && team_absent && signable["embedded_profile"].nil?)
 end
 
 def inspect_application(application, artifact, artifact_kind, options)
@@ -396,7 +534,8 @@ def inspect_application(application, artifact, artifact_kind, options)
   raise DeployIOSSupport::Error, "Application has no Info.plist" unless info_path.file?
 
   main, checks, warnings, info = inspect_signable(application, "main application", allow_unsigned: options[:allow_unsigned])
-  nested = nested_signables(application).map do |bundle|
+  nested_bundles = nested_signables(application)
+  nested = nested_bundles.map do |bundle|
     relative = bundle.relative_path_from(application).to_s
     evidence, bundle_checks, bundle_warnings, = inspect_signable(
       bundle,
@@ -408,6 +547,24 @@ def inspect_application(application, artifact, artifact_kind, options)
     warnings.concat(bundle_warnings)
     evidence
   end
+  dylibs = standalone_dylibs(application)
+  dylibs.each do |dylib|
+    relative = dylib.relative_path_from(application).to_s
+    evidence, dylib_checks, dylib_warnings, = inspect_signable(
+      dylib,
+      "embedded #{relative}",
+      allow_unsigned: options[:allow_unsigned],
+      require_bundle_identifier: false
+    )
+    evidence["path"] = relative
+    checks.concat(dylib_checks)
+    warnings.concat(dylib_warnings)
+    nested << evidence
+  end
+  all_signables = [main, *nested]
+  all_signables.each do |signable|
+    signable.fetch("signature")["credential_free"] = credential_free_signable?(signable)
+  end
 
   signature = main.fetch("signature")
   signed_entitlements = main.fetch("signed_entitlements")
@@ -418,6 +575,13 @@ def inspect_application(application, artifact, artifact_kind, options)
   embedded_revision = %w[SourceRevision SOURCE_REVISION GitCommit GIT_COMMIT].map { |key| info[key] }.compact.first
   origins = origins_in(info).uniq.sort
   source = options[:source_root] ? DeployIOSSupport.git_evidence(Pathname.new(options[:source_root]).expand_path) : {"provided" => false}
+  platform = info["DTPlatformName"]
+  executable_name = info["CFBundleExecutable"]
+  candidates = binary_candidates(application, info, nested_bundles, dylibs)
+  binaries = inspect_binaries(application, candidates)
+  main_binary = binaries.find { |binary| binary["label"] == "main application" }
+  executable_sha256 = main_binary&.fetch("sha256", nil)
+  architectures = main_binary ? main_binary.fetch("architectures") : []
 
   artifact_sha256 = if artifact.file?
     Digest::SHA256.file(artifact).hexdigest
@@ -435,8 +599,21 @@ def inspect_application(application, artifact, artifact_kind, options)
     true,
     build_number.is_a?(String) && build_number.match?(/\A\d+(?:\.\d+){0,2}\z/) && build_number.split(".").first.to_i.positive?
   )
+  candidates.each do |label, path|
+    relative = safe_binary_file?(application, path) ? path.relative_path_from(application).to_s : nil
+    binary = binaries.find { |evidence| evidence["label"] == label && evidence["path"] == relative }
+    checks << DeployIOSSupport.check("#{label}: executable is present and contained in the app", true, !relative.nil?)
+    checks << DeployIOSSupport.check("#{label}: architectures are readable", true, binary && !binary.fetch("architectures").empty?)
+    options[:architectures].each do |architecture|
+      checks << DeployIOSSupport.check(
+        "#{label}: architecture #{architecture}",
+        true,
+        binary ? binary.fetch("architectures").include?(architecture) : false
+      )
+    end
+  end
 
-  if signature["signed"] && !options[:allow_unsigned]
+  if signature["signed"] && !signature["linker_signed"]
     _, _, deep_status = DeployIOSSupport.capture(
       "codesign", "--verify", "--deep", "--strict", application,
       allow_failure: true
@@ -444,6 +621,23 @@ def inspect_application(application, artifact, artifact_kind, options)
     checks << DeployIOSSupport.check("complete application signature graph verifies", true, deep_status.success?)
   end
   checks << DeployIOSSupport.check("bundle identifier", options[:bundle_id], bundle_id) if options[:bundle_id]
+  checks << DeployIOSSupport.check("Apple platform", options[:platform], platform) if options[:platform]
+  if options[:expect_unsigned]
+    all_signables.each do |signable|
+      label = if signable.equal?(main)
+        "main application"
+      elsif signable.fetch("kind") == "dylib"
+        "embedded #{signable.fetch("path")}"
+      else
+        "nested #{signable.fetch("path")}"
+      end
+      checks << DeployIOSSupport.check(
+        "#{label} has no Apple signing identity or profile",
+        true,
+        signable.dig("signature", "credential_free")
+      )
+    end
+  end
   checks << DeployIOSSupport.check("marketing version", options[:version], version) if options[:version]
   checks << DeployIOSSupport.check("build number", options[:build_number], build_number) if options[:build_number]
   checks << DeployIOSSupport.check("artifact SHA-256", options[:artifact_sha256], artifact_sha256) if options[:artifact_sha256]
@@ -451,7 +645,6 @@ def inspect_application(application, artifact, artifact_kind, options)
     checks << DeployIOSSupport.check("leaf certificate SHA-256", options[:certificate_sha256], signature["certificate_sha256"])
   end
 
-  all_signables = [main, *nested]
   if options[:channel]
     all_signables.select { |signable| %w[app appex].include?(signable.fetch("kind")) }.each do |signable|
       signable_profile = signable["embedded_profile"]
@@ -544,6 +737,11 @@ def inspect_application(application, artifact, artifact_kind, options)
       "marketing_version" => version,
       "build_number" => build_number,
       "minimum_os_version" => info["MinimumOSVersion"],
+      "platform" => platform,
+      "executable" => executable_name,
+      "executable_sha256" => executable_sha256,
+      "architectures" => architectures,
+      "embedded_binaries" => binaries,
       "embedded_source_revision" => embedded_revision,
       "rails_origins" => origins
     }.reject { |_, value| value.nil? },

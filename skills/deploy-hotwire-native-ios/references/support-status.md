@@ -23,6 +23,7 @@ team, entitlement set, server origin, or device.
 | One conventional Xcode project can support GUI, CLI, CI, physical-device, and TestFlight workflows | Development-device and TestFlight verified |
 | A pinned XcodeGen spec plus committed project can provide reviewable generation and zero-setup Xcode opening | Compiled; CI drift check verified |
 | `xcodebuild` plus `devicectl` can build, install, and launch on a paired iPhone without opening Xcode | Development-device verified |
+| GitHub-hosted macOS can build a credential-free universal unsigned Simulator app archive, and one Debug artifact can use validated per-launch origins | Compiled; hosted-Simulator launch against two origins observed |
 | GitHub-hosted macOS can build, sign, inspect, and upload the canonical project | TestFlight upload and processing verified |
 | Development installs receive Sandbox APNs tokens while TestFlight installs receive Production tokens | Sandbox physical receipt and TestFlight registration verified; persist the environment per device |
 | API-key-only automatic provisioning on disposable runners can leave orphaned account-side certificates | Negative result reproduced; reusable signing material is the maintained default |
@@ -38,7 +39,7 @@ durable public review rationale is preserved in
 - A new owner's reusable `.p12` and profile path from clean bootstrap through a TestFlight install.
 - Distinct owner Staging and Production lanes with their own identities, Associated Domains, and APNs.
 - Ad Hoc distribution to registered devices.
-- External TestFlight beta review and invitation at workshop scale.
+- External TestFlight beta review and invitation at the target tester scale.
 - Public App Store submission and transfer/graduation from a managed preview.
 - The full Production push matrix: foreground, background, terminated receipt, and warm/cold notification taps.
 

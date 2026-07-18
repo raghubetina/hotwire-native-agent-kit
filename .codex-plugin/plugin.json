@@ -1,6 +1,6 @@
 {
   "name": "hotwire-native-agent-kit",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Develop, verify, and deploy Rails-powered Hotwire Native apps.",
   "author": {
     "name": "Raghu Betina",
@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "Hotwire Native Agent Kit (Unofficial)",
     "shortDescription": "Develop and deploy owned Hotwire Native apps",
-    "longDescription": "Audit Rails applications, implement Hotwire Native iOS and Android clients, validate navigation, Bridge Components, and push, then prepare owner-controlled iOS environments, signing, CI, and TestFlight distribution.",
+    "longDescription": "Audit Rails applications, implement Hotwire Native iOS and Android clients, validate navigation, Bridge Components, and push, then prepare hosted Simulator previews and owner-controlled iOS signing, CI, and TestFlight distribution.",
     "developerName": "Raghu Betina",
     "category": "Productivity",
     "capabilities": ["Interactive", "Write"],
