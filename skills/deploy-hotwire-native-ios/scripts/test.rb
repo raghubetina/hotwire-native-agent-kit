@@ -29,7 +29,12 @@ def write(path, content)
   File.write(path, content)
 end
 
-def info_plist(source_revision: nil)
+def info_plist(
+  source_revision: nil,
+  platform: "iphoneos",
+  bundle_id: "com.example.HotwireApp",
+  executable: "Example"
+)
   revision_entry = if source_revision
     "<key>SourceRevision</key><string>#{source_revision}</string>"
   end
@@ -38,11 +43,13 @@ def info_plist(source_revision: nil)
     <?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
     <plist version="1.0"><dict>
-      <key>CFBundleIdentifier</key><string>com.firstdraft.Example</string>
+      <key>CFBundleIdentifier</key><string>#{bundle_id}</string>
+      <key>CFBundleExecutable</key><string>#{executable}</string>
       <key>CFBundleShortVersionString</key><string>1.2.3</string>
       <key>CFBundleVersion</key><string>42</string>
       <key>MinimumOSVersion</key><string>16.0</string>
-      <key>RailsOrigin</key><string>https://example.test/posts?ignored=true</string>
+      <key>DTPlatformName</key><string>#{platform}</string>
+      <key>RailsOrigin</key><string>https://example.test</string>
       #{revision_entry}
     </dict></plist>
   PLIST
@@ -52,15 +59,15 @@ def entitlements_plist
   <<~PLIST
     <?xml version="1.0" encoding="UTF-8"?>
     <plist version="1.0"><dict>
-      <key>application-identifier</key><string>LEGACY1234.com.firstdraft.Example</string>
+      <key>application-identifier</key><string>LEGACY1234.com.example.HotwireApp</string>
       <key>com.apple.developer.team-identifier</key><string>ABCDE12345</string>
       <key>aps-environment</key><string>production</string>
       <key>com.apple.developer.associated-domains</key>
       <array><string>applinks:example.test</string></array>
       <key>keychain-access-groups</key>
-      <array><string>LEGACY1234.com.firstdraft.Example</string></array>
+      <array><string>LEGACY1234.com.example.HotwireApp</string></array>
       <key>com.apple.security.application-groups</key>
-      <array><string>group.com.firstdraft.Example</string></array>
+      <array><string>group.com.example.HotwireApp</string></array>
       <key>get-task-allow</key><false/>
     </dict></plist>
   PLIST
@@ -69,7 +76,7 @@ end
 def profile_plist(
   certificate: "fixture-leaf-certificate",
   associated_domain: "*",
-  application_group: "group.com.firstdraft.*",
+  application_group: "group.com.example.*",
   application_identifier_prefix: "LEGACY1234",
   provisioned_devices: true
 )
@@ -114,14 +121,14 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
     /* Begin XCBuildConfiguration section */
       ABC /* Debug */ = {
         isa = XCBuildConfiguration;
-        PRODUCT_BUNDLE_IDENTIFIER = com.firstdraft.Example;
+        PRODUCT_BUNDLE_IDENTIFIER = com.example.HotwireApp;
         DEVELOPMENT_TEAM = ABCDE12345;
         IPHONEOS_DEPLOYMENT_TARGET = 16.0;
         name = Debug;
       };
       DEF /* Release */ = {
         isa = XCBuildConfiguration;
-        PRODUCT_BUNDLE_IDENTIFIER = com.firstdraft.Example;
+        PRODUCT_BUNDLE_IDENTIFIER = com.example.HotwireApp;
         DEVELOPMENT_TEAM = ABCDE12345;
         IPHONEOS_DEPLOYMENT_TARGET = 16.0;
         name = Release;
@@ -168,7 +175,7 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
     "--root", project,
     "--json",
     "--expect-clean-source",
-    "--expect-bundle-id", "com.firstdraft.Example",
+    "--expect-bundle-id", "com.example.HotwireApp",
     "--expect-team-id", "ABCDE12345",
     "--expect-rails-origin", "https://example.test"
   )
@@ -202,19 +209,36 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
   FileUtils.mkdir_p(fake_bin)
   fake_codesign = File.join(fake_bin, "codesign")
   fake_security = File.join(fake_bin, "security")
+  fake_lipo = File.join(fake_bin, "lipo")
   write(fake_codesign, <<~'RUBY')
     #!/usr/bin/env ruby
     arguments = ARGV
-    if (argument = arguments.find { |value| value.start_with?("--extract-certificates=") })
+    identity_override =
+      (ENV["FIXTURE_NESTED_IDENTITY"] == "1" && arguments.last.include?("Preview.framework")) ||
+      (ENV["FIXTURE_DYLIB_IDENTITY"] == "1" && arguments.last.end_with?("Support.dylib"))
+    if ENV["FIXTURE_INVALID_NESTED_SIGNATURE"] == "1" && arguments.include?("--verify") && arguments.last.include?("Preview.framework")
+      exit 1
+    end
+    exit 1 if ENV["FIXTURE_LINKER_SPOOF"] == "1" && arguments.include?("--verify")
+    exit 1 if ENV["FIXTURE_LINKER_SIGNED"] == "1" && arguments.include?("--verify")
+    exit 1 if ENV["FIXTURE_UNSIGNED"] == "1" && !identity_override
+
+    if [ENV["FIXTURE_ADHOC"], ENV["FIXTURE_LINKER_SIGNED"], ENV["FIXTURE_LINKER_SPOOF"]].include?("1") && !identity_override
+      warn "Executable=/private/tmp/linker-signed.app/Example" if ENV["FIXTURE_LINKER_SPOOF"] == "1"
+      warn "Identifier=com.example.HotwireApp"
+      warn "CodeDirectory flags=0x20002(adhoc,linker-signed)" if ENV["FIXTURE_LINKER_SIGNED"] == "1"
+      warn "Signature=adhoc"
+      warn "TeamIdentifier=not set"
+    elsif (argument = arguments.find { |value| value.start_with?("--extract-certificates=") })
       File.binwrite("#{argument.split("=", 2).last}0", "fixture-leaf-certificate")
     elsif arguments.include?("--entitlements")
       entitlements = ENV.fetch("FIXTURE_ENTITLEMENTS")
       if arguments.last.end_with?("Share.appex")
-        entitlements = entitlements.gsub("com.firstdraft.Example", "com.firstdraft.Example.Share")
+        entitlements = entitlements.gsub("com.example.HotwireApp", "com.example.HotwireApp.Share")
       end
       puts entitlements
     else
-      identifier = arguments.last.end_with?("Share.appex") ? "com.firstdraft.Example.Share" : "com.firstdraft.Example"
+      identifier = arguments.last.end_with?("Share.appex") ? "com.example.HotwireApp.Share" : "com.example.HotwireApp"
       warn "Executable=/private/path/that/must/not/appear"
       warn "Identifier=#{identifier}"
       warn "TeamIdentifier=ABCDE12345"
@@ -227,7 +251,18 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
     #!/usr/bin/env ruby
     puts ENV.fetch("FIXTURE_PROFILE")
   RUBY
-  FileUtils.chmod(0o755, [fake_codesign, fake_security])
+  write(fake_lipo, <<~'RUBY')
+    #!/usr/bin/env ruby
+    architectures = if ARGV.last.include?("Preview.framework")
+      ENV.fetch("FIXTURE_FRAMEWORK_ARCHITECTURES", ENV.fetch("FIXTURE_ARCHITECTURES", "arm64 x86_64"))
+    elsif ARGV.last.end_with?("Support.dylib")
+      ENV.fetch("FIXTURE_DYLIB_ARCHITECTURES", ENV.fetch("FIXTURE_ARCHITECTURES", "arm64 x86_64"))
+    else
+      ENV.fetch("FIXTURE_ARCHITECTURES", "arm64 x86_64")
+    end
+    puts architectures
+  RUBY
+  FileUtils.chmod(0o755, [fake_codesign, fake_security, fake_lipo])
 
   application = File.join(tmp, "Example.app")
   FileUtils.mkdir_p(application)
@@ -236,13 +271,21 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
   write(File.join(application, "Example"), "binary-fixture")
   extension = File.join(application, "PlugIns/Share.appex")
   FileUtils.mkdir_p(extension)
-  write(File.join(extension, "Info.plist"), info_plist(source_revision: revision).sub("com.firstdraft.Example", "com.firstdraft.Example.Share"))
+  write(
+    File.join(extension, "Info.plist"),
+    info_plist(
+      source_revision: revision,
+      bundle_id: "com.example.HotwireApp.Share",
+      executable: "Share"
+    )
+  )
   write(File.join(extension, "embedded.mobileprovision"), "opaque-extension-profile-fixture")
   write(File.join(extension, "Share"), "extension-binary-fixture")
 
   environment = {
     "DEPLOY_IOS_TOOL_CODESIGN" => fake_codesign,
     "DEPLOY_IOS_TOOL_SECURITY" => fake_security,
+    "DEPLOY_IOS_TOOL_LIPO" => fake_lipo,
     "FIXTURE_ENTITLEMENTS" => entitlements_plist,
     "FIXTURE_PROFILE" => profile_plist
   }
@@ -255,8 +298,8 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
     "--expect-clean-source",
     "--expect-source-sha", revision,
     "--expect-certificate-sha256", certificate_sha256,
-    "--expect-bundle-id", "com.firstdraft.Example",
-    "--expect-nested-bundle-id", "com.firstdraft.Example.Share",
+    "--expect-bundle-id", "com.example.HotwireApp",
+    "--expect-nested-bundle-id", "com.example.HotwireApp.Share",
     "--expect-team-id", "ABCDE12345",
     "--expect-version", "1.2.3",
     "--expect-build-number", "42",
@@ -270,11 +313,20 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
   inspection = JSON.parse(stdout)
   raise "Artifact checks failed" unless inspection.fetch("checks").all? { |check| check["passed"] }
   raise "Embedded source revision was not captured" unless inspection.dig("application", "embedded_source_revision") == revision
-  raise "Nested extension was not inspected" unless inspection.dig("nested_signables", 0, "bundle_identifier") == "com.firstdraft.Example.Share"
+  raise "Nested extension was not inspected" unless inspection.dig("nested_signables", 0, "bundle_identifier") == "com.example.HotwireApp.Share"
   raise "Certificate fingerprint was not captured" unless inspection.dig("signature", "certificate_sha256") == certificate_sha256
   raise "Profile device identifiers must not be emitted" if stdout.include?("device-id-is-not-reported")
   raise "Signing identity names must not be emitted" if stdout.include?("Private Person Must Not Appear")
   raise "Absolute command output paths must not be emitted" if stdout.include?("/private/path")
+
+  _, stderr = run_command(
+    environment, RUBY, INSPECTOR,
+    "--expect-rails-origin", "https://example.test/not-an-origin", application,
+    expect_exit: 1
+  )
+  unless stderr.include?("absolute HTTP(S) host root")
+    raise "A non-root expected Rails URL was not rejected"
+  end
 
   stdout, = run_command(
     environment, RUBY, INSPECTOR,
@@ -403,6 +455,254 @@ Dir.mktmpdir("deploy-hotwire-native-ios-test") do |tmp|
   run_command({}, "/usr/bin/ditto", "-c", "-k", "--keepParent", File.join(ipa_tree, "Payload"), ipa)
   stdout, = run_command(environment, RUBY, INSPECTOR, "--json", ipa)
   raise "IPA was not inspected" unless JSON.parse(stdout).dig("artifact", "type") == "ipa"
+
+  simulator_application = File.join(tmp, "SimulatorExample.app")
+  FileUtils.mkdir_p(simulator_application)
+  write(
+    File.join(simulator_application, "Info.plist"),
+    info_plist(source_revision: revision, platform: "iphonesimulator")
+  )
+  write(File.join(simulator_application, "Example"), "universal-simulator-binary-fixture")
+  simulator_framework = File.join(simulator_application, "Frameworks/Preview.framework")
+  FileUtils.mkdir_p(simulator_framework)
+  write(
+    File.join(simulator_framework, "Info.plist"),
+    info_plist(
+      source_revision: revision,
+      platform: "iphonesimulator",
+      bundle_id: "com.example.HotwireApp.Preview",
+      executable: "Preview"
+    )
+  )
+  write(File.join(simulator_framework, "Preview"), "universal-framework-binary-fixture")
+  simulator_dylib = File.join(simulator_application, "Frameworks/Support.dylib")
+  write(simulator_dylib, "universal-dynamic-library-fixture")
+  simulator_archive = File.join(tmp, "SimulatorExample.app.zip")
+  run_command({}, "/usr/bin/ditto", "-c", "-k", "--keepParent", simulator_application, simulator_archive)
+  simulator_archive_sha256 = Digest::SHA256.file(simulator_archive).hexdigest
+  unsigned_environment = environment.merge("FIXTURE_UNSIGNED" => "1")
+
+  stdout, = run_command(
+    unsigned_environment, RUBY, INSPECTOR,
+    "--json",
+    "--expect-unsigned",
+    "--expect-platform", "iphonesimulator",
+    "--expect-architecture", "arm64",
+    "--expect-architecture", "x86_64",
+    "--source-root", project,
+    "--expect-clean-source",
+    "--expect-source-sha", revision,
+    "--expect-artifact-sha256", simulator_archive_sha256,
+    "--expect-bundle-id", "com.example.HotwireApp",
+    "--expect-rails-origin", "https://example.test",
+    simulator_archive
+  )
+  simulator_inspection = JSON.parse(stdout)
+  unless simulator_inspection.fetch("checks").all? { |check| check["passed"] }
+    raise "Simulator app archive checks failed"
+  end
+  raise "Simulator app archive was not inspected" unless simulator_inspection.dig("artifact", "type") == "app-zip"
+  raise "Simulator app archive digest was not captured" unless simulator_inspection.dig("artifact", "sha256") == simulator_archive_sha256
+  raise "Simulator platform was not captured" unless simulator_inspection.dig("application", "platform") == "iphonesimulator"
+  unless simulator_inspection.dig("application", "architectures") == %w[arm64 x86_64]
+    raise "Universal Simulator architectures were not captured"
+  end
+  framework_binary = simulator_inspection.dig("application", "embedded_binaries").find do |binary|
+    binary["path"] == "Frameworks/Preview.framework/Preview"
+  end
+  unless framework_binary && framework_binary["architectures"] == %w[arm64 x86_64]
+    raise "Universal embedded-framework architectures were not captured"
+  end
+  dylib_binary = simulator_inspection.dig("application", "embedded_binaries").find do |binary|
+    binary["path"] == "Frameworks/Support.dylib"
+  end
+  unless dylib_binary && dylib_binary["architectures"] == %w[arm64 x86_64]
+    raise "Universal embedded-dylib architectures were not captured"
+  end
+  unless simulator_inspection.dig("signature", "credential_free")
+    raise "Credential-free Simulator app was reported as requiring Apple signing"
+  end
+
+  stdout, = run_command(
+    environment.merge("FIXTURE_ADHOC" => "1"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator", simulator_archive
+  )
+  adhoc_simulator = JSON.parse(stdout)
+  unless adhoc_simulator.dig("signature", "kind") == "adhoc" && adhoc_simulator.dig("signature", "credential_free")
+    raise "A credential-free ad hoc Simulator signature was not accepted"
+  end
+
+  stdout, = run_command(
+    environment.merge("FIXTURE_LINKER_SIGNED" => "1"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator", simulator_archive
+  )
+  linker_signed_simulator = JSON.parse(stdout)
+  unless linker_signed_simulator.dig("signature", "linker_signed") && linker_signed_simulator.dig("signature", "credential_free")
+    raise "A credential-free linker-signed Simulator app was not accepted"
+  end
+
+  stdout, = run_command(
+    environment.merge("FIXTURE_LINKER_SPOOF" => "1"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator", simulator_archive,
+    expect_exit: 2
+  )
+  linker_spoof = JSON.parse(stdout)
+  if linker_spoof.dig("signature", "linker_signed")
+    raise "Arbitrary codesign output spoofed the linker-signed marker"
+  end
+  unless linker_spoof.fetch("checks").any? { |check| check["label"].include?("signature verifies") && !check["passed"] }
+    raise "An invalid signature with a linker-signed path was not rejected"
+  end
+
+  stdout, = run_command(
+    unsigned_environment.merge("FIXTURE_NESTED_IDENTITY" => "1"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator", simulator_archive,
+    expect_exit: 2
+  )
+  nested_identity = JSON.parse(stdout)
+  unless nested_identity.fetch("checks").any? do |check|
+    check["label"].include?("Preview.framework") && check["label"].include?("Apple signing identity") && !check["passed"]
+  end
+    raise "An identity-signed nested framework was not rejected"
+  end
+
+  stdout, = run_command(
+    unsigned_environment.merge("FIXTURE_DYLIB_IDENTITY" => "1"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator", simulator_archive,
+    expect_exit: 2
+  )
+  dylib_identity = JSON.parse(stdout)
+  unless dylib_identity.fetch("checks").any? do |check|
+    check["label"].include?("Support.dylib") && check["label"].include?("Apple signing identity") && !check["passed"]
+  end
+    raise "An identity-signed standalone dylib was not rejected"
+  end
+
+  stdout, = run_command(
+    environment.merge("FIXTURE_ADHOC" => "1", "FIXTURE_INVALID_NESTED_SIGNATURE" => "1"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator", simulator_archive,
+    expect_exit: 2
+  )
+  invalid_nested_signature = JSON.parse(stdout)
+  unless invalid_nested_signature.fetch("checks").any? do |check|
+    check["label"].include?("Preview.framework") && check["label"].include?("signature verifies") && !check["passed"]
+  end
+    raise "An invalid nested ad hoc signature was not rejected"
+  end
+
+  stdout, = run_command(
+    unsigned_environment.merge("FIXTURE_FRAMEWORK_ARCHITECTURES" => "arm64"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator",
+    "--expect-architecture", "arm64", "--expect-architecture", "x86_64",
+    simulator_archive,
+    expect_exit: 2
+  )
+  missing_architecture = JSON.parse(stdout)
+  unless missing_architecture.fetch("checks").any? do |check|
+    check["label"].include?("Preview.framework") && check["label"].end_with?("x86_64") && !check["passed"]
+  end
+    raise "A missing embedded-framework Simulator architecture was not rejected"
+  end
+
+  stdout, = run_command(
+    unsigned_environment.merge("FIXTURE_DYLIB_ARCHITECTURES" => "arm64"), RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-platform", "iphonesimulator",
+    "--expect-architecture", "arm64", "--expect-architecture", "x86_64",
+    simulator_archive,
+    expect_exit: 2
+  )
+  missing_dylib_architecture = JSON.parse(stdout)
+  unless missing_dylib_architecture.fetch("checks").any? do |check|
+    check["label"].include?("Support.dylib") && check["label"].end_with?("x86_64") && !check["passed"]
+  end
+    raise "A missing standalone-dylib Simulator architecture was not rejected"
+  end
+
+  stdout, = run_command(environment, RUBY, INSPECTOR, "--json", "--expect-unsigned", simulator_archive, expect_exit: 2)
+  signed_simulator = JSON.parse(stdout)
+  unless signed_simulator.fetch("checks").any? { |check| check["label"].include?("Apple signing identity") && !check["passed"] }
+    raise "A signed Simulator archive was not rejected when unsigned was required"
+  end
+
+  stdout, = run_command(
+    unsigned_environment, RUBY, INSPECTOR,
+    "--json", "--expect-unsigned", "--expect-artifact-sha256", "0" * 64, simulator_archive,
+    expect_exit: 2
+  )
+  wrong_simulator_digest = JSON.parse(stdout)
+  unless wrong_simulator_digest.fetch("checks").any? { |check| check["label"] == "artifact SHA-256" && !check["passed"] }
+    raise "A mismatched Simulator archive digest was not rejected"
+  end
+
+  outside_binary = File.join(tmp, "OutsideBinary")
+  write(outside_binary, "outside-binary-fixture")
+  {
+    "absolute" => outside_binary,
+    "traversal" => "../OutsideBinary"
+  }.each do |name, unsafe_executable|
+    unsafe_application = File.join(tmp, "UnsafeExecutable-#{name}.app")
+    FileUtils.mkdir_p(unsafe_application)
+    write(File.join(unsafe_application, "Info.plist"), info_plist(executable: unsafe_executable, platform: "iphonesimulator"))
+    stdout, = run_command(
+      unsigned_environment, RUBY, INSPECTOR, "--json", "--expect-unsigned", unsafe_application,
+      expect_exit: 2
+    )
+    unsafe_executable_report = JSON.parse(stdout)
+    unless unsafe_executable_report.fetch("checks").any? do |check|
+      check["label"].include?("executable is present and contained") && !check["passed"]
+    end
+      raise "An #{name} CFBundleExecutable path was not rejected"
+    end
+    if unsafe_executable_report.dig("application", "embedded_binaries").any? { |binary| binary["sha256"] == Digest::SHA256.file(outside_binary).hexdigest }
+      raise "An #{name} CFBundleExecutable path escaped the application"
+    end
+  end
+  external_framework = File.join(tmp, "External.framework")
+  FileUtils.mkdir_p(external_framework)
+  write(File.join(external_framework, "Info.plist"), info_plist(executable: "External", platform: "iphonesimulator"))
+  write(File.join(external_framework, "External"), "external-framework-binary")
+  {
+    "framework" => ["Frameworks/Preview.framework", external_framework],
+    "dylib" => ["Frameworks/Support.dylib", outside_binary]
+  }.each do |name, (relative_path, target)|
+    symlinked_application = File.join(tmp, "Symlinked-#{name}.app")
+    FileUtils.cp_r(simulator_application, symlinked_application)
+    link_path = File.join(symlinked_application, relative_path)
+    FileUtils.rm_rf(link_path)
+    File.symlink(target, link_path)
+    _, stderr = run_command(
+      unsigned_environment, RUBY, INSPECTOR, "--json", "--expect-unsigned", symlinked_application,
+      expect_exit: 1
+    )
+    raise "A symlinked #{name} was not rejected" unless stderr.include?("symbolic link")
+  end
+
+  escaped_archive = File.join(tmp, "Escaped.xcarchive")
+  FileUtils.mkdir_p(File.join(escaped_archive, "Products"))
+  external_applications = File.join(tmp, "ExternalApplications")
+  FileUtils.mkdir_p(external_applications)
+  FileUtils.cp_r(simulator_application, File.join(external_applications, "External.app"))
+  File.symlink(external_applications, File.join(escaped_archive, "Products/Applications"))
+  _, stderr = run_command(
+    unsigned_environment, RUBY, INSPECTOR, "--json", "--expect-unsigned", escaped_archive,
+    expect_exit: 1
+  )
+  unless stderr.include?("remain inside the xcarchive")
+    raise "An xcarchive application behind a symlinked ancestor was not rejected"
+  end
+
+  nested_payload = File.join(tmp, "NestedPayload")
+  FileUtils.mkdir_p(nested_payload)
+  FileUtils.cp_r(simulator_application, File.join(nested_payload, "SimulatorExample.app"))
+  nested_simulator_archive = File.join(tmp, "NestedSimulator.app.zip")
+  run_command({}, "/usr/bin/ditto", "-c", "-k", "--keepParent", nested_payload, nested_simulator_archive)
+  _, stderr = run_command(
+    unsigned_environment, RUBY, INSPECTOR, "--json", "--expect-unsigned", nested_simulator_archive,
+    expect_exit: 1
+  )
+  unless stderr.include?("only one top-level application")
+    raise "A non-canonical Simulator archive layout was not rejected"
+  end
 
   unsafe_zipinfo = File.join(fake_bin, "unsafe-zipinfo")
   write(unsafe_zipinfo, <<~RUBY)

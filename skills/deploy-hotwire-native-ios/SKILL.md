@@ -1,6 +1,6 @@
 ---
 name: deploy-hotwire-native-ios
-description: Audit and operate owner-controlled Hotwire Native iOS build and distribution paths. Use for choosing Simulator, direct-device, Ad Hoc, TestFlight, or App Store handoff paths; configuring Development, Staging, and Production lanes; driving Xcode or its command-line tools; managing bundle IDs, certificates, profiles, entitlements, App Store Connect keys, GitHub Actions, Xcode Cloud, XcodeGen, or Fastlane; verifying APNs and Associated Domains in signed artifacts; handing off from a managed preview to the owner's Apple team; or diagnosing signing, provisioning, archive, export, and upload failures.
+description: Audit and operate owner-controlled Hotwire Native iOS build and distribution paths. Use for discovering which preview or deployment lanes are feasible from the current Mac, Windows, Linux, Codespace, VM, or CI executor; choosing local or hosted Simulator, direct-device, Ad Hoc, TestFlight, or App Store paths; building portable unsigned Simulator artifacts; configuring Development, Staging, and Production lanes; driving Xcode or its command-line tools; managing bundle IDs, certificates, profiles, entitlements, App Store Connect keys, GitHub Actions, Xcode Cloud, XcodeGen, or Fastlane; verifying APNs and Associated Domains in signed artifacts; handing off from a managed preview to the owner's Apple team; or diagnosing signing, provisioning, archive, export, and upload failures.
 ---
 
 # Deploy Hotwire Native iOS
@@ -10,9 +10,10 @@ Keep the Xcode project, Apple account, build machine, signing identity, Rails en
 ## Follow the workflow
 
 1. Run `ruby <skill-dir>/scripts/audit_project.rb --root <project-root>` and read
-   [workflow-selection.md](references/workflow-selection.md). Record who owns the source and Apple team, where the
-   Apple-supported Xcode toolchain runs, which Rails origin the binary opens, which channel installs it, and which
-   device capability must be proved.
+   [workflow-selection.md](references/workflow-selection.md). Discover the current executor and the trusted
+   repository's own command surface before recommending a lane. Record who owns the source and Apple team, where
+   the Apple-supported Xcode toolchain runs, which Rails origin the binary opens, which channel installs it, and
+   which device capability must be proved.
 2. Inspect the canonical project, shared schemes, configurations, deployment floors, locked packages, bundle-ID
    family, entitlements, build numbers, command wrappers, Fastlane/Bundler inputs, and CI workflows.
 3. Choose a lane and load its ordered reference set below. Check current primary documentation and installed-tool
@@ -21,7 +22,7 @@ Keep the Xcode project, Apple account, build machine, signing identity, Rails en
    change, and obtain the owner's approval before changing account state or distributing a build.
 5. Make the smallest reproducible source change. Keep account secrets outside the repository. Compile and test
    unsigned first when that can fail before signing.
-6. Rebuild the approved source revision in the trusted lane. Inspect the exported `.app`, `.ipa`, or `.xcarchive`
+6. Rebuild the approved source revision in the trusted lane. Inspect the exported `.app`, `.app.zip`, `.ipa`, or `.xcarchive`
    with `inspect_artifact.rb`; never infer identity or capabilities from project settings or upload success.
 7. Test at the layer that proves the claim: browser, Simulator, Xcode-installed device, Ad Hoc install, TestFlight,
    or App Store. Record physical receipt for OS-mediated behavior.
@@ -54,6 +55,8 @@ automation keys, and APNs provider keys as separate secret classes with separate
   [support-status.md](references/support-status.md) before presenting an advisory path as proven.
 - Never commit certificates, private keys, provisioning profiles, APNs keys, or App Store Connect keys. Base64 is
   transport encoding, not encryption.
+- Never commit DerivedData, built `.app`/`.app.zip` artifacts, or artifact reports. Produce them in an ignored build
+  directory or runner-temporary directory and publish them with deliberate, short retention.
 - Never execute untrusted repository code on a machine or job holding signing credentials. Reusable workflows,
   persistent self-hosted runners, and `pull_request_target` do not create a trust boundary.
 - Persist APNs Sandbox versus Production beside each registered device. A global or Rails-environment switch cannot
@@ -71,7 +74,7 @@ automation keys, and APNs provider keys as separate secret classes with separate
 | Lane | Read in order |
 | --- | --- |
 | Audit or choose a path | [workflow-selection.md](references/workflow-selection.md), [project-and-environments.md](references/project-and-environments.md), [support-status.md](references/support-status.md) |
-| Simulator | [workflow-selection.md](references/workflow-selection.md), [project-and-environments.md](references/project-and-environments.md) |
+| Local or hosted Simulator | [workflow-selection.md](references/workflow-selection.md), [project-and-environments.md](references/project-and-environments.md), [simulator-preview.md](references/simulator-preview.md) |
 | Direct device | [workflow-selection.md](references/workflow-selection.md), [project-and-environments.md](references/project-and-environments.md), [signing-and-capabilities.md](references/signing-and-capabilities.md), [direct-device.md](references/direct-device.md) |
 | Ad Hoc | [workflow-selection.md](references/workflow-selection.md), [project-and-environments.md](references/project-and-environments.md), [signing-and-capabilities.md](references/signing-and-capabilities.md), [ad-hoc.md](references/ad-hoc.md) |
 | TestFlight | [workflow-selection.md](references/workflow-selection.md), [project-and-environments.md](references/project-and-environments.md), [signing-and-capabilities.md](references/signing-and-capabilities.md), [ci-and-testflight.md](references/ci-and-testflight.md), [support-status.md](references/support-status.md) |
@@ -84,6 +87,8 @@ automation keys, and APNs provider keys as separate secret classes with separate
 | --- | --- |
 | The web product works | Browser/request/system tests |
 | The native shell compiles | Unsigned Simulator or generic-device build |
+| A portable Simulator artifact is valid | Inspected unsigned `iphonesimulator` app archive whose main and embedded executables carry every required architecture, source revision, and digest |
+| A hosted Simulator preview works | That exact artifact launched against the intended Rails origin and completed the target navigation smoke test |
 | Development signing works | Xcode-installed build on a paired physical device |
 | Ad Hoc packaging works | Production-signed build installed on a registered device |
 | Entitlements are present | Inspection of every final signed app/extension and embedded profile |

@@ -1,4 +1,4 @@
 interface:
   display_name: "Deploy Hotwire Native iOS"
-  short_description: "Build, sign, verify, and ship owned iOS apps"
-  default_prompt: "Use $deploy-hotwire-native-ios to audit this app’s owner-controlled iOS deployment path without changing credentials or Apple resources; report the smallest sufficient next proof and the approvals it would require."
+  short_description: "Preview, verify, and ship owned iOS apps"
+  default_prompt: "Use $deploy-hotwire-native-ios to inspect this executor and the app’s own commands, then audit its owner-controlled iOS deployment path without changing credentials or Apple resources; report the smallest feasible next proof and the approvals it would require."

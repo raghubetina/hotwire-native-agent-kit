@@ -14,6 +14,11 @@ On pull requests, use a pinned macOS/Xcode environment to:
 
 Unsigned Release compilation proves code, resources, package resolution, and app-icon compilation. It does not prove signing identity, provisioning, final entitlements, TestFlight processing, or device behavior.
 
+A portable preview is a separate Debug artifact, not the unsigned Release compile. Build it from the same canonical
+project and locked packages, inspect it before publication, and upload the app archive plus machine-readable report
+with short retention. Keep both in runner-temporary or ignored output; never commit a built app, archive, DerivedData,
+or report. Neither Apple nor hosted-Simulator credentials belong in this secret-free job.
+
 ## Protect the signed lane
 
 For owner-controlled GitHub Actions:

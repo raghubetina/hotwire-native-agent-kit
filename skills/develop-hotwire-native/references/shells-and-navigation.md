@@ -45,6 +45,28 @@ Useful tagged examples:
 
 For a tab shell, the minimum application-owned surface is normally an app delegate/configuration point, a scene delegate/controller, a `HotwireTab` list, a bundled path configuration, and ordinary Xcode project metadata. A one-stack shell can replace the tab controller/list with a single configured `Navigator`.
 
+## Keep one validated application root
+
+Derive every tab root, sign-in URL, and remote path-configuration URL from one baked application root. Production
+and other distributable configurations use an explicit HTTPS host root rather than a source-code default that can
+drift from artifact metadata.
+
+A development build may accept a per-launch environment variable or launch argument so one Simulator artifact can
+open different Rails previews without rebuilding native code. Keep that override behind a compile-time Debug guard,
+do not persist it, and make Release ignore it even when the process environment or arguments contain the key.
+
+Validate before constructing any derived URL:
+
+- trim whitespace and require an absolute host root;
+- accept HTTPS, plus HTTP only for loopback development hosts;
+- reject credentials, non-root paths, queries, and fragments;
+- normalize an optional trailing slash;
+- define and test precedence when both environment and argument values exist;
+- fall back visibly to the baked root when a Debug override is invalid.
+
+The root is an origin, not a place to carry tokens or other secrets. Changing it for one launch does not prove
+Universal Links, Shared Web Credentials, push, signing, or any other origin- or identity-bound capability.
+
 ## Android 1.3 baseline
 
 - Configure `Hotwire.defaultFragmentDestination` in `Application.onCreate()`.

@@ -15,6 +15,28 @@ Record these independently:
 
 Moving Xcode into the cloud changes decision 3. It does not remove the Apple-account requirements of decisions 2 and 5.
 
+## Discover the current execution surface
+
+Before presenting choices, record the current host OS and architecture, whether full Xcode is installed, whether a
+physical device is paired, whether a hosted macOS workflow exists, and which root `bin/ios` commands the trusted
+checkout actually exposes. Run `bin/ios help`, then its provider-neutral `doctor` when available. Run a
+provider-specific doctor only after selecting that explicit adapter. Do not invent commands from this Skill when
+the checked-out application has not implemented them.
+
+Use the result to narrow the first recommendation:
+
+| Current context | Immediate lanes worth surfacing |
+| --- | --- |
+| macOS with full Xcode | Browser, local Simulator, and—when a suitable team/device exists—direct device |
+| macOS without full Xcode | Browser plus any checked-in hosted-Simulator adapter; install Xcode only when local native work is wanted |
+| Windows, Linux, Codespace, or remote VM | Browser plus a checked-in hosted-Simulator adapter backed by macOS CI |
+| Any host with an owner-controlled paid Apple team and configured cloud signing | The above preview lanes plus the exact owner TestFlight/App Store workflow the repository implements |
+| CI runner | Build/verification executor only; it is not itself the user's interactive preview or proof of physical receipt |
+
+Treat `bin/ios preview <provider>` as an application-owned optional namespace, not a universal command promised by
+this Skill. Keep the provider name visible in suggestions and command invocations. The provider-neutral boundary is
+the inspected Simulator artifact; the selected adapter determines how that artifact becomes an interactive session.
+
 ## Choose the smallest sufficient path
 
 | Path | Apple membership | What it proves | Important limit |
@@ -30,7 +52,7 @@ Moving Xcode into the cloud changes decision 3. It does not remove the Apple-acc
 
 Apple currently documents free Personal Team limits of 10 App IDs, 3 registered devices, 3 installed apps per device, and 7-day expiration for App IDs, devices, and profiles. Treat those numbers as date-sensitive and verify them before presenting them to a user.
 
-Do not configure a free Personal Team against the production target when that target declares unsupported Push Notifications or Associated Domains. A free workshop path needs an intentionally reduced-entitlement Development configuration and its own acceptance test.
+Do not configure a free Personal Team against the production target when that target declares unsupported Push Notifications or Associated Domains. A free direct-device path needs an intentionally reduced-entitlement Development configuration and its own acceptance test.
 
 ## Match the channel to the question
 
@@ -38,7 +60,7 @@ Do not configure a free Personal Team against the production target when that ta
 - Use a directly installed Development build for Developer Mode, cookies across process death, password AutoFill,
   camera behavior, Universal Links, and Sandbox APNs.
 - Use Ad Hoc only when registered-device installation without TestFlight materially helps the owner. It adds
-  production signing and UDID/profile management, so it is not the default workshop path.
+  production signing and UDID/profile management, so it is not the default preview path.
 - Use TestFlight for Production APNs, store packaging, beta installation, and release-only configuration.
 - Use App Store review only when the owner actually intends to publish.
 
@@ -46,7 +68,7 @@ An app uploaded to App Store Connect but never installed through TestFlight has 
 
 ## Preserve ownership during assisted previews
 
-A school, agency, or workshop provider may offer a time-limited TestFlight preview under its own Apple team. Keep that boundary visible:
+A service provider may offer a time-limited TestFlight preview under its own Apple team. Keep that boundary visible:
 
 - the owner retains the conventional Xcode source and unsigned CI;
 - the provider's credentials never enter the owner's repository or runner;

@@ -47,11 +47,17 @@ Prefer one source target with configuration-driven values:
 | Lane | Rails origin | Identity | Signing |
 | --- | --- | --- | --- |
 | Development | localhost, LAN/tunnel, or explicit developer server | visibly non-production bundle/name when practical | unsigned Simulator or Development profile |
+| Hosted Simulator preview | reachable temporary HTTPS origin selected per launch | source-owned Debug identity | unsigned Simulator artifact |
 | Staging | stable owner-controlled HTTPS origin | distinct bundle ID/name/icon | owner-controlled Development/Distribution assets |
 | Production | final public HTTPS origin | final bundle ID and display identity | owner Distribution profile |
-| Managed preview | explicit temporary origin and provider identity | provider-owned bundle ID | external provider contract |
+| Managed signed preview | explicit temporary origin and provider identity | provider-owned bundle ID | external provider contract |
 
-Allow `APP_ROOT_URL` or equivalent only in Debug/Run. Do not let Run-scheme localhost values leak into tests or archives. Tests should exercise the baked default unless they explicitly own a server fixture.
+Treat the per-launch Rails-root resolver as application behavior owned by `develop-hotwire-native`. This deployment
+workflow verifies the resulting contract instead of implementing it: the override is Debug-only, validated,
+non-persistent, and ignored by Release, while the baked default remains explicit. If the sibling Skill is absent,
+report that handoff. Do not let Run-scheme localhost values leak into ordinary tests or archives. Tests should
+exercise the baked default unless they explicitly own a server fixture. Read [simulator-preview.md](simulator-preview.md)
+when producing the portable artifact.
 
 Stamp the resolved release origin and source revision into non-secret `Info.plist` keys such as `RailsOrigin` and
 `SourceRevision` for Staging and Production artifacts. That lets the exported artifact prove what it will open and
@@ -69,18 +75,28 @@ Before archiving Staging or Production, reject:
 
 ## Give humans and agents one front door
 
-A thin repository wrapper such as `bin/ios` should expose the real commands without swallowing diagnostics:
+A thin repository wrapper such as `bin/ios` should expose the real commands without swallowing diagnostics. Keep it
+at the application root as the source-owned front door contributed and maintained by the iOS capability, even when
+the Xcode project and implementation scripts live under `ios/`:
 
 ```text
 doctor
 generate / check-project
 test
 simulator
+simulator-artifact
 device
 archive / beta
+preview PROVIDER / preview PROVIDER status / preview PROVIDER stop (optional adapter)
 ```
 
-The wrapper may select full Xcode, bootstrap Simulator state, and locate artifacts. Keep `xcodebuild`, `simctl`, and `devicectl` failures visible. Ask the installed tools for current syntax with `xcodebuild -help` and `xcrun devicectl help` rather than freezing undocumented flags forever.
+The wrapper may select full Xcode, bootstrap Simulator state, build a portable artifact, and locate outputs. Keep
+`xcodebuild`, `simctl`, and `devicectl` failures visible. It may also route optional preview lifecycle commands to a
+narrow, replaceable provider adapter, provided that adapter consumes the unchanged canonical artifact and keeps
+credentials out of source control and CI. Keep provider-specific implementation isolated from the build commands.
+On a trusted checkout, run `bin/ios help` before suggesting a command and use provider-neutral and provider-specific
+doctor commands at their corresponding boundaries. Ask the installed tools for current syntax with
+`xcodebuild -help` and `xcrun devicectl help` rather than freezing undocumented flags forever.
 
 Primary references:
 

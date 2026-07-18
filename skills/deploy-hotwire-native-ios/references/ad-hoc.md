@@ -1,7 +1,7 @@
 # Ad Hoc distribution
 
 Use Ad Hoc when the owner needs a Production-signed build on a small, known set of registered devices without
-TestFlight. It is useful for a specific operational constraint, not the default workshop or beta-distribution path.
+TestFlight. It is useful for a specific operational constraint, not the default preview or beta-distribution path.
 
 ## Approve the account mutations first
 
